@@ -1,0 +1,6 @@
+wwwroot\app.js
+wwwroot\index.html
+wwwroot\styles.css
+C:\Users\efeer\source\repos\MesajlasmaApp\MesajlasmaApp\wwwroot\app.js
+C:\Users\efeer\source\repos\MesajlasmaApp\MesajlasmaApp\wwwroot\index.html
+C:\Users\efeer\source\repos\MesajlasmaApp\MesajlasmaApp\wwwroot\styles.css
