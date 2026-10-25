@@ -15,6 +15,7 @@ namespace MesajlasmaApp.Models
         public string DisplayName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string PasswordHash { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("createdAt")]
         public DateTime CreateAt {  get; set; } = DateTime.UtcNow; 
         public DateTime LastSeenAt { get; set; }
     }

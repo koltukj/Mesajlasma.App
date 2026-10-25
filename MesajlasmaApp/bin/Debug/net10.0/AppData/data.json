@@ -23,6 +23,22 @@
       "passwordHash": "AQAAAAIAAYagAAAAEHG9c9Wk6wibjlqn0VvqK\u002BhnIGvy2mIisvvfu4AWjMmv0zSMsszhej8JU4NW/2BcXQ==",
       "createdAt": "2026-08-05T13:30:35.5864146Z",
       "lastSeenAt": "2026-08-06T13:20:35.586415Z"
+    },
+    {
+      "id": "3eef2be1-1832-4b28-a2f5-f5b23119c7a8",
+      "displayName": "Test Kullanici",
+      "email": "test-528ffc85@example.com",
+      "passwordHash": "AQAAAAIAAYagAAAAEI4qGcmkg2JP2ZRNN1PgvI5M2h0\u002BJhSmVVBwV3L5OpjqALavSKnKPFPxV8/q4cGp3Q==",
+      "createdAt": "2026-10-25T07:15:02.4108441Z",
+      "lastSeenAt": "2026-10-25T07:15:02.4108443Z"
+    },
+    {
+      "id": "709ec24a-5837-41c9-928b-9b27d634db19",
+      "displayName": "Test Kullanici",
+      "email": "test-fix@example.com",
+      "passwordHash": "AQAAAAIAAYagAAAAEEB86CeMXaR\u002BLD4emUDP1gH9N8ZEW6P3VIAWCttnyQUnPsD\u002Bcze8NqEMGhZmGQsrPQ==",
+      "createdAt": "2026-10-25T07:15:26.1779708Z",
+      "lastSeenAt": "2026-10-25T07:15:26.1779711Z"
     }
   ],
   "conversations": [
@@ -32,7 +48,7 @@
         "7de85405-d3c2-4531-a785-377cbc1365bc",
         "1d27422d-b6b3-41bf-9f87-95f96cb9973b"
       ],
-      "createdAt": "2026-08-06T13:00:35.633564Z"
+      "createAt": "2026-10-25T07:14:57.7254877Z"
     }
   ],
   "messages": [

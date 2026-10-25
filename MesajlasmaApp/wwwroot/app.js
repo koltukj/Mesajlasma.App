@@ -31,40 +31,43 @@ function toggleAuthMode(event) {
     }
 }
 
-// Giriş veya Kayıt Formu Gönderildiğinde Çalışacak Kod
-function handleAuth(event) {
+async function submitAuth(url, body) {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+
+    let data = {};
+    try {
+        data = await response.json();
+    } catch {
+        data = {};
+    }
+
+    if (!response.ok) {
+        throw new Error(data.error || 'Islem basarisiz');
+    }
+
+    return data;
+}
+
+async function handleAuth(event) {
     event.preventDefault();
 
     const email = document.getElementById('authEmail').value.trim();
     const password = document.getElementById('authPassword').value;
     const displayName = isRegisterMode ? document.getElementById('authName').value.trim() : "";
 
-    if (isRegisterMode) {
-        // --- 🟢 KAYIT OLMA LOGİĞİ ---
-        // Yeni kayıt olan kullanıcıyı JSON simülasyonuna kaydediyoruz
-        const newUserId = crypto.randomUUID();
-        const newUser = {
-            id: newUserId,
-            displayName: displayName,
-            email: email,
-            lastSeenAt: new Date().toISOString()
-        };
-        chatData.users.push(newUser);
+    try {
+        const data = isRegisterMode
+            ? await submitAuth('/api/auth/register', { displayName, email, password })
+            : await submitAuth('/api/auth/login', { email, password });
 
-        // Giriş yapan aktif kullanıcıyı bu kişi ilan et
-        launchMainApp(newUserId, displayName);
-    } else {
-        // --- 🔵 GİRİŞ YAPMA LOGİĞİ ---
-        // JSON içindeki kayıtlı kullanıcılardan email kontrolü yapıyoruz
-        const foundUser = chatData.users.find(u => u.email.toLowerCase() === email.toLowerCase());
-
-        if (foundUser) {
-            launchMainApp(foundUser.id, foundUser.displayName);
-        } else {
-            // Eğer JSON'da yoksa test kolaylığı için Ayşe Yılmaz olarak giriş yaptırıyoruz
-            alert("Sistemde özel kayıt bulunamadı, geliştirici moduyla 'Ayşe Yılmaz' olarak bağlanıyorsunuz.");
-            launchMainApp("7de85405-d3c2-4531-a785-377cbc1365bc", "Ayşe Yılmaz");
-        }
+        launchMainApp(data.id, data.displayName);
+    } catch (err) {
+        console.error(err);
+        alert(err.message || 'Sunucuya ulasilamadi');
     }
 }
 
@@ -76,9 +79,7 @@ function launchMainApp(userId, name) {
 
     // Üst profil alanını giriş yapan kişiye göre güncelle
     document.getElementById('currentUserName').innerText = name;
-    document.getElementById('currentUserAvatar').src = `https://ui-avatars.com{encodeURIComponent(name)}&background=075E54&color=fff&bold=true`;
+    document.getElementById('currentUserAvatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=075E54&color=fff&bold=true`;
 
-    // Aktif kullanıcıyı ata ve sol listeyi tazeleyip başlat
     window.currentUserId = userId;
-    init();
 }

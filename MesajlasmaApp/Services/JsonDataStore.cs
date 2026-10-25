@@ -21,7 +21,7 @@ namespace MesajlasmaApp.Services
             PasswordHasher<AppUser> passwordHasher)
         {
             _passwordHasher = passwordHasher;
-            var datadirectory = Path.Combine(enviroment.ContentRootPath, "App_Data");
+            var datadirectory = Path.Combine(enviroment.ContentRootPath, "AppData");
             Directory.CreateDirectory(datadirectory);
             _dataFilePath = Path.Combine(datadirectory, "data.json");
         }

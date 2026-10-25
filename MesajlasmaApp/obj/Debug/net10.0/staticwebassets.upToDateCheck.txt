@@ -1,6 +1,6 @@
-wwwroot\app.js
 wwwroot\index.html
+wwwroot\app.js
 wwwroot\styles.css
-C:\Users\efeer\source\repos\MesajlasmaApp\MesajlasmaApp\wwwroot\app.js
-C:\Users\efeer\source\repos\MesajlasmaApp\MesajlasmaApp\wwwroot\index.html
-C:\Users\efeer\source\repos\MesajlasmaApp\MesajlasmaApp\wwwroot\styles.css
+C:\Users\silai\source\repos\Mesajlasma.App\MesajlasmaApp\wwwroot\index.html
+C:\Users\silai\source\repos\Mesajlasma.App\MesajlasmaApp\wwwroot\app.js
+C:\Users\silai\source\repos\Mesajlasma.App\MesajlasmaApp\wwwroot\styles.css
