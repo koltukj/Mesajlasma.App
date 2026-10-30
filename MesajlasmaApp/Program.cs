@@ -1,12 +1,17 @@
+using System.Diagnostics;
+using MesajlasmaApp;
 using MesajlasmaApp.Models;
 using MesajlasmaApp.Services;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using static MesajlasmaApp.Models.ApiModels;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<PasswordHasher<AppUser>>();
 builder.Services.AddSingleton<JsonDataStore>();
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -15,6 +20,7 @@ await store.InitializeAsync();
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.MapPost("/api/auth/register", async (RegisterRequest request, JsonDataStore dataStore) =>
 {
@@ -41,6 +47,68 @@ app.MapPost("/api/auth/register", async (RegisterRequest request, JsonDataStore 
         displayName = user.DisplayName,
         email = user.Email
     });
+});
+
+app.MapPut("/api/profile", async (Guid userId, UpdateProfileRequest request, JsonDataStore dataStore) =>
+{
+    var profile = await dataStore.UpdateProfileAsync(userId, request.DisplayName, request.StatusMessage, request.IsInvisible);
+    return profile is null ? Results.BadRequest(new { error = "Profil güncellenemedi" }) : Results.Ok(profile);
+});
+
+app.MapPost("/api/profile/photo", async (Guid userId, IFormFile file, JsonDataStore dataStore, IWebHostEnvironment environment) =>
+{
+    var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+    var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+    if (file.Length == 0 || file.Length > 5 * 1024 * 1024 || !allowedExtensions.Contains(extension))
+        return Results.BadRequest(new { error = "Geçersiz profil fotoğrafı" });
+
+    var directory = Path.Combine(environment.WebRootPath, "uploads", "profiles");
+    Directory.CreateDirectory(directory);
+    var storedName = $"{Guid.NewGuid():N}{extension}";
+    await using (var stream = File.Create(Path.Combine(directory, storedName))) await file.CopyToAsync(stream);
+    var profile = await dataStore.UpdateProfileImageAsync(userId, $"/uploads/profiles/{storedName}");
+    return profile is null ? Results.NotFound(new { error = "Kullanıcı bulunamadı" }) : Results.Ok(profile);
+});
+
+app.MapPost("/api/conversations/{conversationId:guid}/attachments", async (
+    Guid conversationId,
+    Guid userId,
+    IFormFile file,
+    JsonDataStore dataStore,
+    IWebHostEnvironment environment,
+    IHubContext<ChatHub> hubContext) =>
+{
+    var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".txt" };
+    var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+    if (file.Length == 0 || file.Length > 10 * 1024 * 1024 || !allowedExtensions.Contains(extension))
+    {
+        return Results.BadRequest(new { error = "Dosya boş, çok büyük veya desteklenmeyen türde" });
+    }
+
+    var uploadDirectory = Path.Combine(environment.WebRootPath, "uploads");
+    Directory.CreateDirectory(uploadDirectory);
+    var storedName = $"{Guid.NewGuid():N}{extension}";
+    await using (var stream = File.Create(Path.Combine(uploadDirectory, storedName)))
+    {
+        await file.CopyToAsync(stream);
+    }
+
+    var message = await dataStore.AddAttachmentMessageAsync(
+        conversationId,
+        userId,
+        Path.GetFileName(file.FileName),
+        $"/uploads/{storedName}");
+    if (message is null) return Results.NotFound(new { error = "Sohbet bulunamadi" });
+
+    var participants = await dataStore.GetParticipantIdsAsync(conversationId, userId);
+    if (participants is not null)
+    {
+        foreach (var participantId in participants)
+        {
+            await hubContext.Clients.Group($"user:{participantId}").SendAsync("MessageReceived", message);
+        }
+    }
+    return Results.Ok(message);
 });
 //Kayit olduktan sonra tekrar giriş yapmak için login endppointi
 app.MapPost("/api/auth/login", async (
@@ -72,6 +140,156 @@ app.MapPost("/api/auth/login", async (
         displayName = user.DisplayName,
         email = user.Email
     });
+});
+
+app.MapGet("/api/users", async (Guid userId, JsonDataStore dataStore) =>
+{
+    if (userId == Guid.Empty)
+    {
+        return Results.BadRequest(new { error = "Kullanici gerekli" });
+    }
+
+    var currentUser = await dataStore.GetUserAsync(userId);
+    if (currentUser is null)
+    {
+        return Results.NotFound(new { error = "Kullanici bulunamadi" });
+    }
+
+    var users = await dataStore.GetUsersAsync(userId);
+    return Results.Ok(users);
+});
+
+app.MapPost("/api/conversations", async (
+    [FromQuery] Guid? userId,
+    [FromBody] CreateConversationRequest? request,
+    JsonDataStore dataStore) =>
+{
+    if (userId is null || userId == Guid.Empty || request is null || request.UserId == Guid.Empty)
+    {
+        return Results.BadRequest(new { error = "Kullanici bilgisi gerekli" });
+    }
+
+    if (await dataStore.GetUserAsync(userId.Value) is null)
+    {
+        return Results.NotFound(new { error = "Kullanici bulunamadi" });
+    }
+
+    var (conversation, error) = await dataStore.GetOrCreatePrivateConversationAsync(userId.Value, request.UserId);
+    return conversation is null
+        ? Results.BadRequest(new { error })
+        : Results.Ok(conversation);
+});
+
+app.MapGet("/api/conversations/{conversationId:guid}/messages", async (
+    Guid conversationId,
+    Guid userId,
+    int? take,
+    JsonDataStore dataStore) =>
+{
+    if (userId == Guid.Empty)
+    {
+        return Results.BadRequest(new { error = "Kullanici gerekli" });
+    }
+
+    var messages = await dataStore.GetMessagesAsync(userId, conversationId, take ?? 100);
+    return messages is null
+        ? Results.NotFound(new { error = "Sohbet bulunamadi" })
+        : Results.Ok(messages);
+});
+
+app.MapGet("/api/conversations/{conversationId:guid}/messages/search", async (
+    Guid conversationId,
+    Guid userId,
+    string query,
+    JsonDataStore dataStore) =>
+{
+    if (string.IsNullOrWhiteSpace(query)) return Results.BadRequest(new { error = "Arama metni gerekli" });
+    var messages = await dataStore.SearchMessagesAsync(userId, conversationId, query.Trim());
+    return messages is null ? Results.NotFound(new { error = "Sohbet bulunamadi" }) : Results.Ok(messages);
+});
+
+app.MapPost("/api/conversations/{conversationId:guid}/messages", async (
+    Guid conversationId,
+    Guid userId,
+    SendMessageRequest request,
+    JsonDataStore dataStore,
+    IHubContext<ChatHub> hubContext) =>
+{
+    if (userId == Guid.Empty || string.IsNullOrWhiteSpace(request.Content))
+    {
+        return Results.BadRequest(new { error = "Kullanici ve mesaj gerekli" });
+    }
+
+    var message = await dataStore.AddMessageAsync(conversationId, userId, request.Content);
+    if (message is null)
+    {
+        return Results.NotFound(new { error = "Sohbet bulunamadi" });
+    }
+
+    var participantIds = await dataStore.GetParticipantIdsAsync(conversationId, userId);
+    if (participantIds is not null)
+    {
+        foreach (var participantId in participantIds)
+        {
+            await hubContext.Clients.Group($"user:{participantId}")
+                .SendAsync("MessageReceived", message);
+        }
+    }
+
+    return Results.Ok(message);
+});
+
+app.MapPost("/api/conversations/{conversationId:guid}/read", async (
+    Guid conversationId,
+    Guid userId,
+    JsonDataStore dataStore) =>
+{
+    var result = await dataStore.MarkConversationReadAsync(conversationId, userId);
+    return result is null
+        ? Results.NotFound(new { error = "Sohbet bulunamadi" })
+        : Results.NoContent();
+});
+
+app.MapPut("/api/messages/{messageId:guid}", async (
+    Guid messageId,
+    Guid userId,
+    EditMessageRequest request,
+    JsonDataStore dataStore) =>
+{
+    var message = await dataStore.EditMessageAsync(messageId, userId, request.Content);
+    return message is null ? Results.BadRequest(new { error = "Mesaj düzenlenemedi" }) : Results.Ok(message);
+});
+
+app.MapDelete("/api/messages/{messageId:guid}", async (
+    Guid messageId,
+    Guid userId,
+    bool forEveryone,
+    JsonDataStore dataStore) =>
+{
+    var message = await dataStore.DeleteMessageAsync(messageId, userId, forEveryone);
+    return message is null ? Results.BadRequest(new { error = "Mesaj silinemedi" }) : Results.Ok(message);
+});
+
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    var url = app.Urls.FirstOrDefault()
+        ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS")?.Split(';')[0]
+        ?? "http://localhost:5144";
+
+    Console.WriteLine($"Tarayici aciliyor: {url}");
+
+    try
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = url,
+            UseShellExecute = true
+        });
+    }
+    catch (Exception)
+    {
+        Console.WriteLine($"Tarayici otomatik acilamadi. Adresi elle acin: {url}");
+    }
 });
 
 app.Run();

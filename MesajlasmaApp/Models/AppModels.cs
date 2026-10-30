@@ -18,6 +18,9 @@ namespace MesajlasmaApp.Models
         [System.Text.Json.Serialization.JsonPropertyName("createdAt")]
         public DateTime CreateAt {  get; set; } = DateTime.UtcNow; 
         public DateTime LastSeenAt { get; set; }
+        public string? ProfileImageUrl { get; set; }
+        public string StatusMessage { get; set; } = string.Empty;
+        public bool IsInvisible { get; set; }
     }
 
     public sealed class Conversation
@@ -33,7 +36,13 @@ namespace MesajlasmaApp.Models
         public Guid ConversationId { get; set; }
         public Guid SenderId { get; set; }
         public string Content { get; set; } = string.Empty;
+        public string? AttachmentName { get; set; }
+        public string? AttachmentUrl { get; set; }
         public DateTime SentAt { get; set; } = DateTime.UtcNow;
+        public DateTime? EditedAt { get; set; }
+        public bool IsDeleted { get; set; }
+        public List<Guid> DeliveredToUserIds { get; set; } = [];
         public List<Guid> ReadByUserIds { get; set; } = [];
+        public List<Guid> DeletedForUserIds { get; set; } = [];
     }
 }

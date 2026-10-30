@@ -19,6 +19,70 @@
     --radius-premium: 24px;
 }
 
+.message-attachment {
+    display: block;
+    max-width: 240px;
+    max-height: 220px;
+    margin: 8px 0 2px;
+    border-radius: 10px;
+    color: var(--neon-cyan);
+    object-fit: cover;
+}
+
+a.message-attachment {
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.18);
+    text-decoration: none;
+}
+
+.message-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.msg-bubble:hover .message-actions {
+    opacity: 1;
+}
+
+.message-action {
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text-pure);
+    cursor: pointer;
+}
+
+.message-action:hover {
+    background: rgba(6, 182, 212, 0.7);
+}
+
+.message-action.delete-action:hover {
+    background: var(--neon-pink);
+}
+
+.message-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: 5px;
+}
+
+.message-status {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.message-status.read {
+    color: #67e8f9;
+    text-shadow: 0 0 8px rgba(34, 211, 238, 0.7);
+}
+
 /* --- GENEL SIFIRLAMA VE AKICILIK --- */
 * {
     box-sizing: border-box;
@@ -88,6 +152,7 @@ body {
     border: 2px solid var(--neon-cyan);
     box-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
 }
 
     .avatar:hover {
@@ -452,19 +517,20 @@ body {
 
 .chat-input-container {
     height: 85px;
-    padding: 0 28px;
+    padding: 0 24px;
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     border-top: 1px solid var(--border-neon);
     background: rgba(10, 10, 16, 0.4);
 }
 
 .input-wrapper {
     flex: 1;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: var(--radius-premium);
+    min-width: 0;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
     display: flex;
     align-items: center;
     padding: 0 8px 0 20px;
@@ -493,24 +559,41 @@ body {
 /* Parlayan Roket Gönderim Butonu */
 
 .send-btn {
-    background: var(--aurora-gradient);
-    border: none;
+    flex: 0 0 50px;
+    background: var(--msg-out-gradient);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     color: var(--text-pure);
-    width: 46px;
-    height: 46px;
-    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    border-radius: 16px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
-    box-shadow: var(--cyber-glow);
+    font-size: 17px;
+    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
     .send-btn:hover {
-        transform: scale(1.1) translateX(2px);
-        box-shadow: 0 0 25px rgba(124, 58, 237, 0.6);
+        transform: translateY(-2px);
+        box-shadow: 0 12px 26px rgba(79, 70, 229, 0.5);
+        border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .send-btn:active {
+        transform: translateY(0) scale(0.96);
+    }
+
+    .send-btn:focus-visible {
+        outline: 2px solid var(--neon-cyan);
+        outline-offset: 3px;
+    }
+
+    .send-btn:disabled {
+        cursor: wait;
+        opacity: 0.6;
+        transform: none;
     }
 /* --- BOŞ EKRAN KARŞILAMA ALANI (AURORA ECLIPSE) --- */
 

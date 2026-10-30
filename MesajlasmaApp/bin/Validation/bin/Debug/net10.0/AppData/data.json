@@ -1,0 +1,78 @@
+{
+  "users": [
+    {
+      "id": "7de85405-d3c2-4531-a785-377cbc1365bc",
+      "displayName": "Ay\u015Fe Y\u0131lmaz",
+      "email": "ayse@example.com",
+      "passwordHash": "AQAAAAIAAYagAAAAELMFU7\u002Br6FtXk6ekotLH9wcmrtYZAz9tIYtFLhd\u002BgmXJS99ttLzVgk\u002BWWT7Gy1BkIw==",
+      "createdAt": "2026-08-05T13:30:35.5046689Z",
+      "lastSeenAt": "2026-08-06T13:34:46.341994Z"
+    },
+    {
+      "id": "1d27422d-b6b3-41bf-9f87-95f96cb9973b",
+      "displayName": "Mehmet Demir",
+      "email": "mehmet@example.com",
+      "passwordHash": "AQAAAAIAAYagAAAAEOWmDl5/PDauOA6I2MqNWAmfnaieg/x7cbeVKXfQgKjZf6wz/EkSgqP1WiqlhSMMHQ==",
+      "createdAt": "2026-08-05T13:30:35.5466109Z",
+      "lastSeenAt": "2026-08-06T13:20:35.5466112Z"
+    },
+    {
+      "id": "330ac0a3-8e24-4c9c-a98f-49aeea6ad121",
+      "displayName": "Zeynep Kaya",
+      "email": "zeynep@example.com",
+      "passwordHash": "AQAAAAIAAYagAAAAEHG9c9Wk6wibjlqn0VvqK\u002BhnIGvy2mIisvvfu4AWjMmv0zSMsszhej8JU4NW/2BcXQ==",
+      "createdAt": "2026-08-05T13:30:35.5864146Z",
+      "lastSeenAt": "2026-08-06T13:20:35.586415Z"
+    },
+    {
+      "id": "3eef2be1-1832-4b28-a2f5-f5b23119c7a8",
+      "displayName": "Test Kullanici",
+      "email": "test-528ffc85@example.com",
+      "passwordHash": "AQAAAAIAAYagAAAAEI4qGcmkg2JP2ZRNN1PgvI5M2h0\u002BJhSmVVBwV3L5OpjqALavSKnKPFPxV8/q4cGp3Q==",
+      "createdAt": "2026-10-25T07:15:02.4108441Z",
+      "lastSeenAt": "2026-10-25T07:15:02.4108443Z"
+    },
+    {
+      "id": "709ec24a-5837-41c9-928b-9b27d634db19",
+      "displayName": "Test Kullanici",
+      "email": "test-fix@example.com",
+      "passwordHash": "AQAAAAIAAYagAAAAEEB86CeMXaR\u002BLD4emUDP1gH9N8ZEW6P3VIAWCttnyQUnPsD\u002Bcze8NqEMGhZmGQsrPQ==",
+      "createdAt": "2026-10-25T07:15:26.1779708Z",
+      "lastSeenAt": "2026-10-25T07:15:26.1779711Z"
+    }
+  ],
+  "conversations": [
+    {
+      "id": "15c82e7c-c78f-4ed6-8fb5-d078fce169c2",
+      "participantIds": [
+        "7de85405-d3c2-4531-a785-377cbc1365bc",
+        "1d27422d-b6b3-41bf-9f87-95f96cb9973b"
+      ],
+      "createAt": "2026-10-25T07:14:57.7254877Z"
+    }
+  ],
+  "messages": [
+    {
+      "id": "3431202d-1428-4a7d-9dc6-32e82614a931",
+      "conversationId": "15c82e7c-c78f-4ed6-8fb5-d078fce169c2",
+      "senderId": "7de85405-d3c2-4531-a785-377cbc1365bc",
+      "content": "Merhaba Mehmet, mesajla\u015Fma uygulamas\u0131na ho\u015F geldin.",
+      "sentAt": "2026-08-06T13:05:35.6337058Z",
+      "readByUserIds": [
+        "7de85405-d3c2-4531-a785-377cbc1365bc",
+        "1d27422d-b6b3-41bf-9f87-95f96cb9973b"
+      ]
+    },
+    {
+      "id": "05b74165-b0f1-47b0-9cc1-d026c4fa414d",
+      "conversationId": "15c82e7c-c78f-4ed6-8fb5-d078fce169c2",
+      "senderId": "1d27422d-b6b3-41bf-9f87-95f96cb9973b",
+      "content": "Merhaba Ay\u015Fe! Ger\u00E7ek zamanl\u0131 mesajla\u015Fma \u00E7al\u0131\u015F\u0131yor.",
+      "sentAt": "2026-08-06T13:06:35.6337325Z",
+      "readByUserIds": [
+        "7de85405-d3c2-4531-a785-377cbc1365bc",
+        "1d27422d-b6b3-41bf-9f87-95f96cb9973b"
+      ]
+    }
+  ]
+}

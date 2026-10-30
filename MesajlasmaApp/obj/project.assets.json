@@ -14,11 +14,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\silai\\source\\repos\\Mesajlasma.App\\MesajlasmaApp\\MesajlasmaApp.csproj",
+      "projectUniqueName": "C:\\Users\\silai\\Mesajlasma.App\\MesajlasmaApp\\MesajlasmaApp.csproj",
       "projectName": "MesajlasmaApp",
-      "projectPath": "C:\\Users\\silai\\source\\repos\\Mesajlasma.App\\MesajlasmaApp\\MesajlasmaApp.csproj",
+      "projectPath": "C:\\Users\\silai\\Mesajlasma.App\\MesajlasmaApp\\MesajlasmaApp.csproj",
       "packagesPath": "C:\\Users\\silai\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\silai\\source\\repos\\Mesajlasma.App\\MesajlasmaApp\\obj\\",
+      "outputPath": "C:\\Users\\silai\\Mesajlasma.App\\MesajlasmaApp\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

@@ -6,12 +6,17 @@
         public sealed record LoginRequest(string Email, string Password);
         public sealed record CreateConversationRequest(Guid UserId);
         public sealed record SendMessageRequest(string Content);
+        public sealed record EditMessageRequest(string Content);
+        public sealed record DeleteMessageRequest(bool ForEveryone);
+        public sealed record UpdateProfileRequest(string DisplayName, string StatusMessage, bool IsInvisible);
         public sealed record UserDto(
             Guid Id,
             string DisplayName,
             string Email,
             bool IsOnline,
-            DateTime? LastSeenAt);
+            DateTime? LastSeenAt,
+            string? ProfileImageUrl,
+            string StatusMessage);
         public sealed record MeDto(
             Guid Id,
             string DisplayName,
@@ -22,8 +27,13 @@
             Guid SenderId,
             string SenderName,
             string Content,
+            string? AttachmentName,
+            string? AttachmentUrl,
             DateTime SentAt,
-            int ReadByCount);
+            int ReadByCount,
+            int DeliveredToCount,
+            bool IsEdited,
+            bool IsDeleted);
         public sealed record ConversationSummaryDto(
             Guid Id,
             UserDto OtherUser,

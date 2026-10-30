@@ -25,6 +25,82 @@ namespace MesajlasmaApp.Services
             Directory.CreateDirectory(datadirectory);
             _dataFilePath = Path.Combine(datadirectory, "data.json");
         }
+
+        public async Task<UserDto?> UpdateProfileImageAsync(Guid userId, string imageUrl)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var user = _data.Users.FirstOrDefault(item => item.Id == userId);
+                if (user is null) return null;
+                user.ProfileImageUrl = imageUrl;
+                await SaveInternalAsync();
+                return ToUserDto(user);
+            }
+            finally { _gate.Release(); }
+        }
+
+        public async Task<UserDto?> UpdateProfileAsync(Guid userId, string displayName, string statusMessage, bool isInvisible, string? profileImageUrl = null)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var user = _data.Users.FirstOrDefault(item => item.Id == userId);
+                if (user is null || string.IsNullOrWhiteSpace(displayName)) return null;
+                user.DisplayName = displayName.Trim();
+                user.StatusMessage = statusMessage?.Trim() ?? string.Empty;
+                user.IsInvisible = isInvisible;
+                if (profileImageUrl is not null) user.ProfileImageUrl = profileImageUrl;
+                await SaveInternalAsync();
+                return ToUserDto(user);
+            }
+            finally { _gate.Release(); }
+        }
+
+        public async Task<MessageDto?> AddAttachmentMessageAsync(Guid conversationId, Guid senderId, string name, string url)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var conversation = _data.Conversations.FirstOrDefault(item => item.Id == conversationId && item.ParticipantIds.Contains(senderId));
+                if (conversation is null) return null;
+                var message = new ChatMessage
+                {
+                    ConversationId = conversationId,
+                    SenderId = senderId,
+                    Content = name,
+                    AttachmentName = name,
+                    AttachmentUrl = url,
+                    SentAt = DateTime.UtcNow,
+                    DeliveredToUserIds = conversation.ParticipantIds.ToList(),
+                    ReadByUserIds = [senderId]
+                };
+                _data.Messages.Add(message);
+                await SaveInternalAsync();
+                return ToMessageDto(message);
+            }
+            finally { _gate.Release(); }
+        }
+
+        public async Task<IReadOnlyList<MessageDto>?> SearchMessagesAsync(Guid currentUserId, Guid conversationId, string query)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var conversation = _data.Conversations.FirstOrDefault(item =>
+                    item.Id == conversationId && item.ParticipantIds.Contains(currentUserId));
+                if (conversation is null) return null;
+
+                return _data.Messages
+                    .Where(message => message.ConversationId == conversationId &&
+                                      !message.DeletedForUserIds.Contains(currentUserId) &&
+                                      message.Content.Contains(query, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(message => message.SentAt)
+                    .Select(ToMessageDto)
+                    .ToList();
+            }
+            finally { _gate.Release(); }
+        }
         public async Task InitializeAsync()
         {
             await _gate.WaitAsync();
@@ -119,7 +195,7 @@ namespace MesajlasmaApp.Services
             try
             {
                 return _data.Users
-                    .Where(user => user.Id == curentUserId)
+                    .Where(user => user.Id != curentUserId)
                     .OrderBy(user => user.DisplayName)
                     .Select(user => ToUserDto(user))
                     .ToList();
@@ -200,6 +276,7 @@ namespace MesajlasmaApp.Services
                 }
                 return _data.Messages
                     .Where(message => message.ConversationId == conversatinId)
+                    .Where(message => !message.DeletedForUserIds.Contains(curentUserId))
                     .OrderByDescending(message => message.SentAt)
                     .Take(take)
                     .OrderBy(message => message.SentAt)
@@ -210,6 +287,43 @@ namespace MesajlasmaApp.Services
             {
                 _gate.Release();
             }
+        }
+
+        public async Task<MessageDto?> EditMessageAsync(Guid messageId, Guid userId, string content)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var message = _data.Messages.FirstOrDefault(item => item.Id == messageId && item.SenderId == userId && !item.IsDeleted);
+                if (message is null || string.IsNullOrWhiteSpace(content)) return null;
+                message.Content = content.Trim();
+                message.EditedAt = DateTime.UtcNow;
+                await SaveInternalAsync();
+                return ToMessageDto(message);
+            }
+            finally { _gate.Release(); }
+        }
+
+        public async Task<MessageDto?> DeleteMessageAsync(Guid messageId, Guid userId, bool forEveryone)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var message = _data.Messages.FirstOrDefault(item => item.Id == messageId && item.SenderId == userId);
+                if (message is null) return null;
+                if (forEveryone)
+                {
+                    message.Content = "Bu mesaj silindi";
+                    message.IsDeleted = true;
+                }
+                else if (!message.DeletedForUserIds.Contains(userId))
+                {
+                    message.DeletedForUserIds.Add(userId);
+                }
+                await SaveInternalAsync();
+                return ToMessageDto(message);
+            }
+            finally { _gate.Release(); }
         }
         public async Task<MessageDto?> AddMessageAsync(
             Guid conversationId,
@@ -232,6 +346,7 @@ namespace MesajlasmaApp.Services
                     SenderId = senderId,
                     Content = content.Trim(),
                     SentAt = DateTime.UtcNow,
+                    DeliveredToUserIds = conversation.ParticipantIds.ToList(),
                     ReadByUserIds = [senderId]
                 };
 
@@ -361,8 +476,13 @@ namespace MesajlasmaApp.Services
                 message.SenderId,
                 sender?.DisplayName ?? "Bilinmeyen kullanici",
                 message.Content,
+                message.AttachmentName,
+                message.AttachmentUrl,
                 message.SentAt,
-                message.ReadByUserIds.Distinct().Count());
+                message.ReadByUserIds.Distinct().Count(),
+                message.DeliveredToUserIds.Distinct().Count(),
+                message.EditedAt is not null,
+                message.IsDeleted);
         }
 
         private static UserDto ToUserDto(AppUser user)
@@ -371,8 +491,10 @@ namespace MesajlasmaApp.Services
                 user.Id,
                 user.DisplayName,
                 user.Email,
-                false,
-                user.LastSeenAt);
+                !user.IsInvisible && DateTime.UtcNow - user.LastSeenAt < TimeSpan.FromMinutes(5),
+                user.LastSeenAt,
+                user.ProfileImageUrl,
+                user.StatusMessage);
         }
 
         private AppUser CreateDemoUser(string displayName,string email)
@@ -433,6 +555,8 @@ namespace MesajlasmaApp.Services
             foreach (var message in _data.Messages)
             {
                 message.ReadByUserIds ??= [];
+                message.DeliveredToUserIds ??= message.ReadByUserIds.ToList();
+                message.DeletedForUserIds ??= [];
             }
         }
 
