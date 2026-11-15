@@ -1,0 +1,805 @@
+﻿/* --- 🌌 MÜKEMMELİYETİN SİBER VE CANLI RENK DEĞİŞKENLERİ 🌌 --- */
+:root {
+    --bg-universe: #09090e; /* Sonsuz uzay derinliği siyahı */
+    --panel-glass: rgba(18, 18, 29, 0.65); /* Yarı saydam siber cam paneli */
+    --border-neon: rgba(255, 255, 255, 0.08);
+    /* Canlı Enerji Gradyanları */
+    --aurora-gradient: linear-gradient(135deg, #7c3aed 0%, #f43f5e 50%, #06b6d4 100%);
+    --msg-out-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); /* Elektrik moru */
+    --msg-in-glass: rgba(255, 255, 255, 0.06);
+    /* Neon Akor Renkleri */
+    --neon-cyan: #06b6d4;
+    --neon-pink: #f43f5e;
+    --neon-purple: #a855f7;
+    --text-pure: #ffffff;
+    --text-cyber: #94a3b8;
+    /* Efektler */
+    --cyber-glow: 0 0 20px rgba(124, 58, 237, 0.3);
+    --bubble-glow: 0 4px 15px rgba(79, 70, 229, 0.25);
+    --radius-premium: 24px;
+}
+
+.message-attachment {
+    display: block;
+    max-width: 240px;
+    max-height: 220px;
+    margin: 8px 0 2px;
+    border-radius: 10px;
+    color: var(--neon-cyan);
+    object-fit: cover;
+}
+
+a.message-attachment {
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.18);
+    text-decoration: none;
+}
+
+.message-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.msg-bubble:hover .message-actions {
+    opacity: 1;
+}
+
+.message-action {
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text-pure);
+    cursor: pointer;
+}
+
+.message-action:hover {
+    background: rgba(6, 182, 212, 0.7);
+}
+
+.message-action.delete-action:hover {
+    background: var(--neon-pink);
+}
+
+.message-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: 5px;
+}
+
+.message-status {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.message-status.read {
+    color: #67e8f9;
+    text-shadow: 0 0 8px rgba(34, 211, 238, 0.7);
+}
+
+/* --- GENEL SIFIRLAMA VE AKICILIK --- */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    background: var(--bg-universe);
+    /* Arkada sürekli dönen veya duran büyüleyici renk dalgaları (Aurora efektli arka plan) */
+    background-image: radial-gradient(at 0% 0%, rgba(244, 63, 94, 0.15) 0px, transparent 45%), radial-gradient(at 100% 100%, rgba(6, 118, 212, 0.18) 0px, transparent 50%), radial-gradient(at 50% 50%, rgba(124, 58, 237, 0.1) 0px, transparent 60%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* --- ANA UYGULAMA ÇERÇEVESİ (ULTRA-GLASSMORPHISM) --- */
+.app-container {
+    display: flex;
+    width: 95vw;
+    max-width: 1350px;
+    height: 90vh;
+    background: var(--panel-glass);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-premium);
+    overflow: hidden;
+    border: 1px solid var(--border-neon);
+}
+
+/* --- SOL PANEL (SIDEBAR) --- */
+.sidebar {
+    width: 380px;
+    min-width: 340px;
+    background: rgba(10, 10, 16, 0.4);
+    border-right: 1px solid var(--border-neon);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Üst Kullanıcı Paneli */
+.sidebar-header {
+    height: 85px;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-neon);
+}
+
+.profile-meta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--neon-cyan);
+    box-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+    .avatar:hover {
+        transform: scale(1.1) rotate(5deg);
+        box-shadow: 0 0 20px rgba(6, 182, 212, 0.7);
+    }
+
+.profile-info h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-pure);
+    letter-spacing: -0.2px;
+}
+
+.status-badge {
+    font-size: 11px;
+    color: var(--neon-cyan);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.dot-online {
+    width: 8px;
+    height: 8px;
+    background-color: var(--neon-cyan);
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 10px var(--neon-cyan);
+}
+
+/* Muazzam Artı Butonu */
+.add-user-btn {
+    background: var(--aurora-gradient);
+    border: none;
+    color: var(--text-pure);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    box-shadow: var(--cyber-glow);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+    .add-user-btn:hover {
+        transform: rotate(180deg) scale(1.1);
+        box-shadow: 0 0 25px rgba(244, 63, 94, 0.6);
+    }
+
+/* Arama Çubuğu */
+.search-box {
+    padding: 16px 24px;
+}
+
+.search-wrapper {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+    transition: all 0.3s;
+}
+
+    .search-wrapper:focus-within {
+        border-color: var(--neon-purple);
+        background: rgba(255, 255, 255, 0.06);
+        box-shadow: 0 0 15px rgba(168, 85, 247, 0.2);
+    }
+
+    .search-wrapper i {
+        color: var(--text-cyber);
+        font-size: 14px;
+    }
+
+    .search-wrapper input {
+        width: 100%;
+        height: 42px;
+        border: none;
+        background: transparent;
+        outline: none;
+        font-size: 14px;
+        color: var(--text-pure);
+    }
+
+        .search-wrapper input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+/* Dinamik Kullanıcı Listesi */
+.user-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 12px 12px 12px;
+}
+
+.user-item {
+    display: flex;
+    align-items: center;
+    padding: 16px 14px;
+    gap: 14px;
+    cursor: pointer;
+    border-radius: 16px;
+    margin-bottom: 6px;
+    border: 1px solid transparent;
+    transition: all 0.25s ease;
+}
+
+    .user-item:hover {
+        background: rgba(255, 255, 255, 0.03);
+        border-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .user-item.active {
+        background: linear-gradient(90deg, rgba(124, 58, 237, 0.15) 0%, rgba(6, 182, 212, 0.05) 100%);
+        border-color: rgba(124, 58, 237, 0.3);
+        box-shadow: inset 0 0 12px rgba(124, 58, 237, 0.1);
+    }
+
+        .user-item.active .user-item-name {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
+        }
+
+.user-item-body {
+    flex: 1;
+    overflow: hidden;
+}
+
+.user-item-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.user-item-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-pure);
+}
+
+.user-item-time {
+    font-size: 11px;
+    color: var(--text-cyber);
+}
+
+.user-item-sub {
+    font-size: 13px;
+    color: var(--text-cyber);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* --- SAĞ PANEL (SOHBET ALANI) --- */
+.chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: rgba(7, 7, 12, 0.2);
+    position: relative;
+}
+
+/* Sohbet Üst Header */
+.chat-header {
+    height: 85px;
+    padding: 0 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-neon);
+    background: rgba(10, 10, 16, 0.2);
+    z-index: 10;
+}
+
+.active-partner-meta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.partner-info h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-pure);
+    letter-spacing: -0.2px;
+}
+
+.partner-info .sub-text {
+    font-size: 12px;
+    color: #10b981; /* Canlı yeşil durum yazısı */
+    font-weight: 500;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.action-btn, .input-action-btn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--text-cyber);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+    .action-btn:hover, .input-action-btn:hover {
+        background: var(--aurora-gradient);
+        color: var(--text-pure);
+        border-color: transparent;
+        box-shadow: var(--cyber-glow);
+    }
+
+/* Mesaj Akış Ekranı */
+.chat-messages {
+    flex: 1;
+    padding: 28px 6%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    /* Geometrik Siber Izgara Arka Planı */
+    background-image: linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    background-size: 24px 24px;
+}
+
+/* --- KUSURSUZ NEON MESAJ BALONLARI --- */
+.message-row {
+    display: flex;
+    width: 100%;
+    align-items: flex-end;
+    gap: 12px;
+    animation: telekinetikGiris 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes telekinetikGiris {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(15px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.message-row.justify-out {
+    flex-direction: row-reverse;
+}
+
+.message-row.justify-in {
+    flex-direction: row;
+}
+
+.msg-bubble {
+    max-width: 60%;
+    padding: 12px 18px 10px 18px;
+    border-radius: 20px;
+    font-size: 14.5px;
+    color: var(--text-pure);
+    line-height: 1.6;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+    /* Gelen Mesaj - Siber Cam */
+    .msg-bubble.bubble-in {
+        background: var(--msg-in-glass);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-bottom-left-radius: 4px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Giden Mesaj - Elektrik Enerjisi */
+    .msg-bubble.bubble-out {
+        background: var(--msg-out-gradient);
+        border-bottom-right-radius: 4px;
+        box-shadow: var(--bubble-glow);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+/* Ultra Estetik Çöp Kutusu */
+.delete-msg-btn {
+    background: rgba(244, 63, 94, 0.1);
+    border: 1px solid rgba(244, 63, 94, 0.2);
+    color: var(--neon-pink);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.7);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.message-row:hover .delete-msg-btn {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.delete-msg-btn:hover {
+    background: var(--neon-pink);
+    color: var(--text-pure);
+    box-shadow: 0 0 15px var(--neon-pink);
+    transform: scale(1.1);
+}
+
+/* Mesaj Zaman Damgaları */
+.msg-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+    margin-top: 6px;
+    align-self: flex-end;
+}
+
+.msg-time {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 600;
+}
+
+.bi-check-all {
+    font-size: 16px;
+}
+    /* Kozmik Mavi Tık */
+
+    .bi-check-all.read {
+        color: #22d3ee;
+        text-shadow: 0 0 8px #22d3ee;
+    }
+
+    .bi-check-all.unread {
+        color: rgba(255, 255, 255, 0.3);
+    }
+/* --- ALT MESAJ YAZMA PANELİ (NEON SLIDER) --- */
+
+.chat-input-container {
+    height: 85px;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-top: 1px solid var(--border-neon);
+    background: rgba(10, 10, 16, 0.4);
+}
+
+.input-wrapper {
+    flex: 1;
+    min-width: 0;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    padding: 0 8px 0 20px;
+    transition: all 0.3s;
+}
+
+    .input-wrapper:focus-within {
+        border-color: var(--neon-cyan);
+        background: rgba(255, 255, 255, 0.04);
+        box-shadow: 0 0 20px rgba(6, 182, 212, 0.15);
+    }
+
+    .input-wrapper input {
+        width: 100%;
+        height: 48px;
+        border: none;
+        background: transparent;
+        outline: none;
+        font-size: 15px;
+        color: var(--text-pure);
+    }
+
+        .input-wrapper input::placeholder {
+            color: rgba(255, 255, 255, 0.25);
+        }
+/* Parlayan Roket Gönderim Butonu */
+
+.send-btn {
+    flex: 0 0 50px;
+    background: var(--msg-out-gradient);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: var(--text-pure);
+    width: 50px;
+    height: 50px;
+    border-radius: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+    .send-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 26px rgba(79, 70, 229, 0.5);
+        border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .send-btn:active {
+        transform: translateY(0) scale(0.96);
+    }
+
+    .send-btn:focus-visible {
+        outline: 2px solid var(--neon-cyan);
+        outline-offset: 3px;
+    }
+
+    .send-btn:disabled {
+        cursor: wait;
+        opacity: 0.6;
+        transform: none;
+    }
+/* --- BOŞ EKRAN KARŞILAMA ALANI (AURORA ECLIPSE) --- */
+
+.welcome-placeholder {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    text-align: center;
+    color: var(--text-cyber);
+    padding: 0 40px;
+}
+
+.icon-circle {
+    width: 110px;
+    height: 110px;
+    background: var(--aurora-gradient);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    color: var(--text-pure);
+    margin-bottom: 28px;
+    box-shadow: 0 15px 35px rgba(244, 63, 94, 0.3);
+}
+
+.welcome-placeholder h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-pure);
+    margin-bottom: 12px;
+    letter-spacing: -0.5px;
+    text-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+}
+
+.welcome-placeholder p {
+    font-size: 14px;
+    line-height: 1.7; /* --- 🔐 KOZMİK KİMLİK DOĞRULAMA (AUTH) STİLLERİ 🔐 --- */
+    .auth-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100vw;
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 9999;
+    }
+
+    .auth-box {
+        background: var(--panel-glass);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+        width: 100%;
+        max-width: 420px;
+        padding: 40px;
+        border-radius: var(--radius-premium);
+        border: 1px solid var(--border-neon);
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        animation: authGiris 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes authGiris {
+        from {
+            opacity: 0;
+            transform: scale(0.9) translateY(-20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    .auth-header {
+        text-align: center;
+        margin-bottom: 32px;
+    }
+
+    .auth-icon-circle {
+        width: 70px;
+        height: 70px;
+        background: var(--aurora-gradient);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        color: var(--text-pure);
+        margin: 0 auto 16px auto;
+        box-shadow: var(--cyber-glow);
+    }
+
+    .auth-header h2 {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--text-pure);
+        letter-spacing: -0.5px;
+        margin-bottom: 6px;
+    }
+
+    .auth-header p {
+        font-size: 13.5px;
+        color: var(--text-cyber);
+    }
+    /* Giriş Alanları */
+    .input-field {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 12px;
+        margin-bottom: 18px;
+        transition: all 0.3s;
+    }
+
+        .input-field:focus-within {
+            border-color: var(--neon-cyan);
+            background: rgba(255, 255, 255, 0.05);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.2);
+        }
+
+        .input-field i {
+            color: var(--text-cyber);
+            font-size: 16px;
+        }
+
+        .input-field input {
+            width: 100%;
+            height: 48px;
+            border: none;
+            background: transparent;
+            outline: none;
+            font-size: 14.5px;
+            color: var(--text-pure);
+        }
+
+            .input-field input::placeholder {
+                color: rgba(255, 255, 255, 0.3);
+            }
+    /* Büyük Form Butonu */
+    .auth-submit-btn {
+        background: var(--aurora-gradient);
+        border: none;
+        color: var(--text-pure);
+        width: 100%;
+        height: 50px;
+        border-radius: 14px;
+        font-size: 15.5px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: var(--cyber-glow);
+        margin-top: 10px;
+        transition: all 0.3s ease;
+    }
+
+        .auth-submit-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 25px rgba(124, 58, 237, 0.5);
+        }
+
+        .auth-submit-btn:active {
+            transform: scale(0.98);
+        }
+
+    .auth-footer {
+        text-align: center;
+        margin-top: 24px;
+        font-size: 13.5px;
+        color: var(--text-cyber);
+    }
+
+        .auth-footer a {
+            color: var(--neon-cyan);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+            .auth-footer a:hover {
+                color: var(--neon-pink);
+                text-shadow: 0 0 8px rgba(244, 63, 94, 0.4);
+            }
+
+    max-width: 400px;
+    color: var(--text-cyber);
+}
+/* --- SİBER KAYDIRMA ÇUBUĞU (SCROLLBAR) --- */
+
+::-webkit-scrollbar {
+    width: 5px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(168, 85, 247, 0.2);
+    border-radius: 10px;
+}
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--aurora-gradient);
+    }

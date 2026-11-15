@@ -1,0 +1,187 @@
+﻿using System.Diagnostics;
+using MesajlasmaApp;
+using MesajlasmaApp.Models;
+using MesajlasmaApp.Services;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using static MesajlasmaApp.Models.ApiModels;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddSingleton<PasswordHasher<AppUser>>();
+builder.Services.AddSingleton<JsonDataStore>();
+builder.Services.AddSignalR();
+
+var app = builder.Build();
+
+var store = app.Services.GetRequiredService<JsonDataStore>();
+await store.InitializeAsync();
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
+app.MapHub<ChatHub>("/hubs/chat");
+
+app.MapPost("/api/auth/register", async (RegisterRequest request, JsonDataStore dataStore) =>
+{
+    if (string.IsNullOrWhiteSpace(request.DisplayName) ||
+        string.IsNullOrWhiteSpace(request.Email) ||
+        string.IsNullOrWhiteSpace(request.Password))
+    {
+        return Results.BadRequest(new { error = "Tum alanlar zorunlu" });
+    }
+
+    var (user, error) = await dataStore.CreateUserAsync(
+        request.DisplayName,
+        request.Email,
+        request.Password);
+
+    if (error is not null)
+    {
+        return Results.Conflict(new { error });
+    }
+
+    return Results.Ok(new
+    {
+        id = user!.Id,
+        displayName = user.DisplayName,
+        email = user.Email
+    });
+});
+//Kayit olduktan sonra tekrar giriş yapmak için login endppointi
+app.MapPost("/api/auth/login", async (
+    LoginRequest request,
+    JsonDataStore dataStore,
+    PasswordHasher<AppUser> passwordHasher) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Email) ||
+        string.IsNullOrWhiteSpace(request.Password))
+    {
+        return Results.BadRequest(new { error = "E-posta ve sifre zorunlu" });
+    }
+
+    var user = await dataStore.FindUserByEmailAsync(request.Email);
+    if (user is null)
+    {
+        return Results.Json(new { error = "E-posta veya sifre hatali" }, statusCode: StatusCodes.Status401Unauthorized);
+    }
+
+    var verification = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
+    if (verification == PasswordVerificationResult.Failed)
+    {
+        return Results.Json(new { error = "E-posta veya sifre hatali" }, statusCode: StatusCodes.Status401Unauthorized);
+    }
+
+    return Results.Ok(new
+    {
+        id = user.Id,
+        displayName = user.DisplayName,
+        email = user.Email
+    });
+});
+
+app.MapGet("/api/users", async (Guid userId, JsonDataStore dataStore) =>
+{
+    if (userId == Guid.Empty)
+    {
+        return Results.BadRequest(new { error = "Kullanici gerekli" });
+    }
+
+    var currentUser = await dataStore.GetUserAsync(userId);
+    if (currentUser is null)
+    {
+        return Results.NotFound(new { error = "Kullanici bulunamadi" });
+    }
+
+    var users = await dataStore.GetUsersAsync(userId);
+    return Results.Ok(users);
+});
+
+app.MapPost("/api/conversations", async (
+    [FromQuery] Guid? userId,
+    [FromBody] CreateConversationRequest? request,
+    JsonDataStore dataStore) =>
+{
+    if (userId is null || userId == Guid.Empty || request is null || request.UserId == Guid.Empty)
+    {
+        return Results.BadRequest(new { error = "Kullanici bilgisi gerekli" });
+    }
+
+    if (await dataStore.GetUserAsync(userId.Value) is null)
+    {
+        return Results.NotFound(new { error = "Kullanici bulunamadi" });
+    }
+
+    var (conversation, error) = await dataStore.GetOrCreatePrivateConversationAsync(userId.Value, request.UserId);
+    return conversation is null
+        ? Results.BadRequest(new { error })
+        : Results.Ok(conversation);
+});
+
+app.MapGet("/api/conversations/{conversationId:guid}/messages", async (
+    Guid conversationId,
+    Guid userId,
+    int? take,
+    JsonDataStore dataStore) =>
+{
+    if (userId == Guid.Empty)
+    {
+        return Results.BadRequest(new { error = "Kullanici gerekli" });
+    }
+
+    var messages = await dataStore.GetMessagesAsync(userId, conversationId, take ?? 100);
+    return messages is null
+        ? Results.NotFound(new { error = "Sohbet bulunamadi" })
+        : Results.Ok(messages);
+});
+
+app.MapPost("/api/conversations/{conversationId:guid}/messages", async (
+    Guid conversationId,
+    Guid userId,
+    SendMessageRequest request,
+    JsonDataStore dataStore) =>
+{
+    if (userId == Guid.Empty || string.IsNullOrWhiteSpace(request.Content))
+    {
+        return Results.BadRequest(new { error = "Kullanici ve mesaj gerekli" });
+    }
+
+    var message = await dataStore.AddMessageAsync(conversationId, userId, request.Content);
+    return message is null
+        ? Results.NotFound(new { error = "Sohbet bulunamadi" })
+        : Results.Ok(message);
+});
+
+app.MapPost("/api/conversations/{conversationId:guid}/read", async (
+    Guid conversationId,
+    Guid userId,
+    JsonDataStore dataStore) =>
+{
+    var result = await dataStore.MarkConversationReadAsync(conversationId, userId);
+    return result is null
+        ? Results.NotFound(new { error = "Sohbet bulunamadi" })
+        : Results.NoContent();
+});
+
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    var url = app.Urls.FirstOrDefault()
+        ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS")?.Split(';')[0]
+        ?? "http://localhost:5144";
+
+    Console.WriteLine($"Tarayici aciliyor: {url}");
+
+    try
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = url,
+            UseShellExecute = true
+        });
+    }
+    catch (Exception)
+    {
+        Console.WriteLine($"Tarayici otomatik acilamadi. Adresi elle acin: {url}");
+    }
+});
+
+app.Run();

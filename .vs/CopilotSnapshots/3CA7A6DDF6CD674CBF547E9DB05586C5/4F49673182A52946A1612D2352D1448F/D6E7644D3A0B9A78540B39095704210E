@@ -1,0 +1,308 @@
+﻿// --- 🔐 LOGİN & REGISTER SİSTEMİ DEĞİŞKENLERİ VE FONKSİYONLARI 🔐 ---
+let isRegisterMode = false;
+
+// Giriş ve Kayıt Modları Arasında Akıcı Geçiş Yapma
+function toggleAuthMode(event) {
+    event.preventDefault();
+    isRegisterMode = !isRegisterMode;
+
+    const title = document.getElementById('authTitle');
+    const subtitle = document.getElementById('authSubtitle');
+    const nameField = document.getElementById('registerNameField');
+    const submitBtn = document.getElementById('authSubmitBtn');
+    const switchLink = document.getElementById('authSwitchLink');
+    const switchText = document.getElementById('authSwitchText');
+    const nameInput = document.getElementById('authName');
+
+    if (isRegisterMode) {
+        title.innerText = "Kayıt Ol";
+        subtitle.innerText = "Evrene yeni bir siber hesap katın";
+        nameField.style.display = "flex";
+        nameInput.required = true;
+        submitBtn.innerText = "Kayıt Ol & Bağlan";
+        switchText.innerHTML = `Zaten hesabınız var mı? <a href="#" id="authSwitchLink" onclick="toggleAuthMode(event)">Giriş Yap</a>`;
+    } else {
+        title.innerText = "Kozmik Giriş";
+        subtitle.innerText = "Siber mesajlaşma ağına bağlanın";
+        nameField.style.display = "none";
+        nameInput.required = false;
+        submitBtn.innerText = "Giriş Yap";
+        switchText.innerHTML = `Hesabınız yok mu? <a href="#" id="authSwitchLink" onclick="toggleAuthMode(event)">Kayıt Ol</a>`;
+    }
+}
+
+async function submitAuth(url, body) {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+
+    let data = {};
+    try {
+        data = await response.json();
+    } catch {
+        data = {};
+    }
+
+    if (!response.ok) {
+        throw new Error(data.error || 'Islem basarisiz');
+    }
+
+    return data;
+}
+
+async function handleAuth(event) {
+    event.preventDefault();
+
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+    const displayName = isRegisterMode ? document.getElementById('authName').value.trim() : "";
+
+    try {
+        const data = isRegisterMode
+            ? await submitAuth('/api/auth/register', { displayName, email, password })
+            : await submitAuth('/api/auth/login', { email, password });
+
+        launchMainApp(data.id, data.displayName);
+    } catch (err) {
+        console.error(err);
+        alert(err.message || 'Sunucuya ulasilamadi');
+    }
+}
+
+let allUsers = [];
+let activeConversationId = null;
+let activePartner = null;
+
+// Giriş Başarılı Olduğunda Ekranları Değiştiren Motor Fonksiyon
+function launchMainApp(userId, name) {
+    // Giriş kutusunu pürüzsüzce kapat, mesajlaşmayı aç
+    document.getElementById('authContainer').style.display = 'none';
+    document.getElementById('appContainer').style.display = 'flex';
+
+    // Üst profil alanını giriş yapan kişiye göre güncelle
+    document.getElementById('currentUserName').innerText = name;
+    document.getElementById('currentUserAvatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=075E54&color=fff&bold=true`;
+
+    window.currentUserId = userId;
+    loadUsers();
+}
+
+async function loadUsers() {
+    const list = document.getElementById('userList');
+    list.innerHTML = '<div class="user-item-sub" style="padding:16px">Kisiler yukleniyor...</div>';
+
+    try {
+        const response = await fetch(`/api/users?userId=${encodeURIComponent(window.currentUserId)}`);
+        let data = [];
+        try {
+            data = await response.json();
+        } catch {
+            data = [];
+        }
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Kisiler alinamadi');
+        }
+
+        allUsers = Array.isArray(data) ? data : [];
+        renderUsers(allUsers);
+    } catch (err) {
+        console.error(err);
+        list.innerHTML = `<div class="user-item-sub" style="padding:16px">${err.message || 'Kisiler yuklenemedi'}</div>`;
+    }
+}
+
+function renderUsers(users) {
+    const list = document.getElementById('userList');
+    list.innerHTML = '';
+
+    if (!users.length) {
+        list.innerHTML = '<div class="user-item-sub" style="padding:16px">Kayitli baska kisi yok</div>';
+        return;
+    }
+
+    for (const user of users) {
+        const item = document.createElement('div');
+        item.className = 'user-item';
+        item.dataset.userId = user.id;
+        item.addEventListener('click', () => openConversation(user));
+
+        const avatar = document.createElement('img');
+        avatar.className = 'avatar';
+        avatar.alt = user.displayName || '';
+        avatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'Kullanici')}&background=075E54&color=fff&bold=true`;
+
+        const body = document.createElement('div');
+        body.className = 'user-item-body';
+
+        const top = document.createElement('div');
+        top.className = 'user-item-top';
+
+        const name = document.createElement('span');
+        name.className = 'user-item-name';
+        name.textContent = user.displayName || 'Isimsiz';
+
+        const time = document.createElement('span');
+        time.className = 'user-item-time';
+        time.textContent = formatLastSeen(user.lastSeenAt);
+
+        top.append(name, time);
+
+        const sub = document.createElement('div');
+        sub.className = 'user-item-sub';
+        sub.textContent = user.email || '';
+
+        body.append(top, sub);
+        item.append(avatar, body);
+        list.appendChild(item);
+    }
+}
+
+async function openConversation(user) {
+    activePartner = user;
+    const header = document.getElementById('chatHeader');
+    const inputContainer = document.getElementById('chatInputContainer');
+    const messages = document.getElementById('chatMessages');
+
+    header.style.display = 'flex';
+    inputContainer.style.display = 'flex';
+    document.getElementById('welcomePlaceholder').style.display = 'none';
+    document.getElementById('partnerName').textContent = user.displayName || 'Isimsiz';
+    document.getElementById('partnerStatus').textContent = user.isOnline
+        ? 'Çevrimiçi'
+        : `Son görülme: ${formatLastSeen(user.lastSeenAt) || 'bilinmiyor'}`;
+    document.getElementById('partnerAvatar').src =
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'Kullanici')}&background=075E54&color=fff&bold=true`;
+    messages.innerHTML = '<div class="user-item-sub" style="padding:16px">Mesajlar yükleniyor...</div>';
+
+    try {
+        const conversationResponse = await fetch(`/api/conversations?userId=${encodeURIComponent(window.currentUserId)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id })
+        });
+        const conversation = await readApiResponse(conversationResponse);
+        activeConversationId = conversation.id;
+
+        const messagesResponse = await fetch(
+            `/api/conversations/${conversation.id}/messages?userId=${encodeURIComponent(window.currentUserId)}`);
+        const messageList = await readApiResponse(messagesResponse);
+        renderMessages(messageList);
+        await fetch(`/api/conversations/${conversation.id}/read?userId=${encodeURIComponent(window.currentUserId)}`, {
+            method: 'POST'
+        });
+    } catch (err) {
+        console.error(err);
+        messages.innerHTML = `<div class="user-item-sub" style="padding:16px">${err.message || 'Sohbet yüklenemedi'}</div>`;
+    }
+}
+
+async function readApiResponse(response) {
+    let data = {};
+    try {
+        data = await response.json();
+    } catch {
+        data = {};
+    }
+
+    if (!response.ok) {
+        throw new Error(data.error || 'İşlem başarısız');
+    }
+
+    return data;
+}
+
+function renderMessages(messages) {
+    const container = document.getElementById('chatMessages');
+    container.innerHTML = '';
+
+    if (!messages.length) {
+        container.innerHTML = '<div class="user-item-sub" style="padding:16px">Henüz mesaj yok. İlk mesajı siz gönderin.</div>';
+        return;
+    }
+
+    for (const message of messages) {
+        const bubble = document.createElement('div');
+        bubble.className = message.senderId === window.currentUserId ? 'message sent' : 'message received';
+
+        const content = document.createElement('div');
+        content.className = 'message-content';
+        content.textContent = message.content;
+
+        const time = document.createElement('span');
+        time.className = 'message-time';
+        time.textContent = formatLastSeen(message.sentAt);
+
+        bubble.append(content, time);
+        container.appendChild(bubble);
+    }
+
+    container.scrollTop = container.scrollHeight;
+}
+
+async function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const content = input.value.trim();
+    if (!activeConversationId || !content) {
+        return;
+    }
+
+    input.disabled = true;
+    try {
+        const response = await fetch(
+            `/api/conversations/${activeConversationId}/messages?userId=${encodeURIComponent(window.currentUserId)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+        await readApiResponse(response);
+        input.value = '';
+
+        const messagesResponse = await fetch(
+            `/api/conversations/${activeConversationId}/messages?userId=${encodeURIComponent(window.currentUserId)}`);
+        renderMessages(await readApiResponse(messagesResponse));
+    } catch (err) {
+        console.error(err);
+        alert(err.message || 'Mesaj gönderilemedi');
+    } finally {
+        input.disabled = false;
+        input.focus();
+    }
+}
+
+function formatLastSeen(value) {
+    if (!value) {
+        return '';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+
+    return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+}
+
+document.getElementById('userSearchInput').addEventListener('input', (event) => {
+    const query = event.target.value.trim().toLowerCase();
+    if (!query) {
+        renderUsers(allUsers);
+        return;
+    }
+
+    renderUsers(allUsers.filter((user) => {
+        const name = (user.displayName || '').toLowerCase();
+        const email = (user.email || '').toLowerCase();
+        return name.includes(query) || email.includes(query);
+    }));
+});
+
+document.getElementById('sendButton').addEventListener('click', sendMessage);
+document.getElementById('messageInput').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+    }
+});

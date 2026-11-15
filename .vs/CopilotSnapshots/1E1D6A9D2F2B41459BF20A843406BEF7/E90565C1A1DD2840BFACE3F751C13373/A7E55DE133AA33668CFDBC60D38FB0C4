@@ -1,0 +1,135 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatApp - Kozmik Giriş & Mesajlaşma</title>
+
+    <!-- Modern Yazı Tipi (Inter) -->
+    <link rel="preconnect" href="https://googleapis.com">
+    <link rel="preconnect" href="https://gstatic.com" crossorigin>
+    <link href="https://googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Profesyonel İkon Kütüphanesi (Bootstrap Icons) -->
+    <link rel="stylesheet" href="https://jsdelivr.net">
+
+    <!-- CSS Dosyası Bağlantısı -->
+    <link rel="stylesheet" href="styles.css?v=3.0">
+</head>
+<body>
+
+    <!-- 🌌 GİRİŞ YAP / KAYIT OL EKRANI (TEK PANEL) 🌌 -->
+    <div class="auth-container" id="authContainer">
+        <div class="auth-box">
+            <!-- Aurora Başlık -->
+            <div class="auth-header">
+                <div class="auth-icon-circle">
+                    <i class="bi bi-shield-lock-fill"></i>
+                </div>
+                <h2 id="authTitle">Kozmik Giriş</h2>
+                <p id="authSubtitle">Siber mesajlaşma ağına bağlanın</p>
+            </div>
+
+            <!-- Dinamik Form Alanı -->
+            <form id="authForm" onsubmit="handleAuth(event)">
+                <!-- Kayıt Olurken Görünecek Alan (Varsayılan Gizli) -->
+                <div class="input-field" id="registerNameField" style="display: none;">
+                    <i class="bi bi-person-fill"></i>
+                    <input type="text" id="authName" placeholder="Adınız Soyadınız">
+                </div>
+
+                <div class="input-field">
+                    <i class="bi bi-envelope-fill"></i>
+                    <input type="email" id="authEmail" placeholder="E-posta Adresi" required>
+                </div>
+
+                <div class="input-field">
+                    <i class="bi bi-lock-fill"></i>
+                    <input type="password" id="authPassword" placeholder="Şifre" required>
+                </div>
+
+                <button type="submit" class="auth-submit-btn" id="authSubmitBtn">Giriş Yap</button>
+            </form>
+
+            <!-- Alt Değiştirme Linki -->
+            <div class="auth-footer">
+                <p id="authSwitchText">Hesabınız yok mu? <a href="#" id="authSwitchLink" onclick="toggleAuthMode(event)">Kayıt Ol</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 💬 ANA MESAJLAŞMA UYGULAMASI (GİRİŞTEN SONRA AÇILIR - VARSAYILAN GİZLİ) 💬 -->
+    <div class="app-container" id="appContainer" style="display: none;">
+
+        <!-- SOL PANEL: KULLANICI LİSTESİ VE ARAMA -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="profile-meta">
+                    <img id="currentUserAvatar" src="" class="avatar" alt="Profil">
+                    <div class="profile-info">
+                        <h3 id="currentUserName">Yükleniyor...</h3>
+                        <span class="status-badge"><span class="dot-online"></span> Çevrimiçi</span>
+                    </div>
+                </div>
+                <button class="add-user-btn" id="addUserBtn" title="Yeni Kişi Ekle">
+                    <i class="bi bi-person-plus-fill"></i>
+                </button>
+            </div>
+
+            <div class="search-box">
+                <div class="search-wrapper">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="userSearchInput" placeholder="Sohbet ara veya yeni mesaj başlat...">
+                </div>
+            </div>
+
+            <div class="user-list" id="userList">
+                <!-- Kullanıcılar JS ile dolacak -->
+            </div>
+        </aside>
+
+        <!-- SAĞ PANEL: SOHBET PENCERESİ -->
+        <main class="chat-area">
+            <header class="chat-header" id="chatHeader" style="display: none;">
+                <div class="active-partner-meta">
+                    <img id="partnerAvatar" src="" class="avatar" alt="Profil">
+                    <div class="partner-info">
+                        <h2 id="partnerName">Sohbet Edilen Kişi</h2>
+                        <span id="partnerStatus" class="sub-text">Son görülme bilgisi...</span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="action-btn" id="chatSearchButton" title="Mesajlarda ara"><i class="bi bi-search"></i></button>
+                    <button class="action-btn"><i class="bi bi-three-dots-vertical"></i></button>
+                </div>
+            </header>
+
+            <section class="chat-messages" id="chatMessages">
+                <div class="welcome-placeholder" id="welcomePlaceholder">
+                    <div class="icon-circle">
+                        <i class="bi bi-chat-left-text-fill"></i>
+                    </div>
+                    <h2>Sohbet Odasına Hoş Geldiniz</h2>
+                    <p>Mesajları görüntülemek ve gerçek zamanlı yazışmaya başlamak için sol panelden bir kişi seçin.</p>
+                </div>
+            </section>
+
+            <footer class="chat-input-container" id="chatInputContainer" style="display: none;">
+                <button class="input-action-btn" id="attachButton" title="Dosya ekle"><i class="bi bi-paperclip"></i></button>
+                <input type="file" id="fileInput" hidden accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt">
+                <div class="input-wrapper">
+                    <input type="text" id="messageInput" placeholder="Bir mesaj yazın...">
+                    <button class="input-action-btn emoji-btn"><i class="bi bi-emoji-smile"></i></button>
+                </div>
+                <button id="sendButton" class="send-btn">
+                    <i class="bi bi-send-fill"></i>
+                </button>
+            </footer>
+        </main>
+    </div>
+
+    <!-- JavaScript Dosyası Bağlantısı -->
+    <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
+    <script src="app.js?v=4.2"></script>
+</body>
+</html>

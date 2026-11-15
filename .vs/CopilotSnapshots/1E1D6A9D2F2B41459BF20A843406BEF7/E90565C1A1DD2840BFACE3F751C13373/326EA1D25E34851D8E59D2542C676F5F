@@ -1,0 +1,499 @@
+﻿// --- 🔐 LOGİN & REGISTER SİSTEMİ DEĞİŞKENLERİ VE FONKSİYONLARI 🔐 ---
+let isRegisterMode = false;
+
+// Giriş ve Kayıt Modları Arasında Akıcı Geçiş Yapma
+function toggleAuthMode(event) {
+    event.preventDefault();
+    isRegisterMode = !isRegisterMode;
+
+    const title = document.getElementById('authTitle');
+    const subtitle = document.getElementById('authSubtitle');
+    const nameField = document.getElementById('registerNameField');
+    const submitBtn = document.getElementById('authSubmitBtn');
+    const switchLink = document.getElementById('authSwitchLink');
+    const switchText = document.getElementById('authSwitchText');
+    const nameInput = document.getElementById('authName');
+
+    if (isRegisterMode) {
+        title.innerText = "Kayıt Ol";
+        subtitle.innerText = "Evrene yeni bir siber hesap katın";
+        nameField.style.display = "flex";
+        nameInput.required = true;
+        submitBtn.innerText = "Kayıt Ol & Bağlan";
+        switchText.innerHTML = `Zaten hesabınız var mı? <a href="#" id="authSwitchLink" onclick="toggleAuthMode(event)">Giriş Yap</a>`;
+    } else {
+        title.innerText = "Kozmik Giriş";
+        subtitle.innerText = "Siber mesajlaşma ağına bağlanın";
+        nameField.style.display = "none";
+        nameInput.required = false;
+        submitBtn.innerText = "Giriş Yap";
+        switchText.innerHTML = `Hesabınız yok mu? <a href="#" id="authSwitchLink" onclick="toggleAuthMode(event)">Kayıt Ol</a>`;
+    }
+
+async function searchActiveMessages() {
+    if (!activeConversationId) return;
+    const query = prompt('Bu sohbette aranacak mesaj:');
+    if (!query?.trim()) return;
+
+    const response = await fetch(
+        `/api/conversations/${activeConversationId}/messages/search?userId=${encodeURIComponent(window.currentUserId)}&query=${encodeURIComponent(query.trim())}`);
+    if (!response.ok) {
+        alert('Mesajlar aranamadı.');
+        return;
+    }
+
+    const results = await response.json();
+    renderMessages(results);
+}
+}
+
+async function submitAuth(url, body) {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+
+    chatConnection.on('MessageReceived', async (message) => {
+        if (message.conversationId !== activeConversationId) {
+            return;
+        }
+
+        const response = await fetch(
+            `/api/conversations/${activeConversationId}/messages?userId=${encodeURIComponent(window.currentUserId)}`);
+        if (response.ok && activeConversationId === message.conversationId) {
+            renderMessages(await response.json());
+        }
+    });
+
+    let data = {};
+    try {
+        data = await response.json();
+    } catch {
+        data = {};
+    }
+
+    if (!response.ok) {
+        throw new Error(data.error || 'Islem basarisiz');
+    }
+
+    return data;
+}
+
+async function handleAuth(event) {
+    event.preventDefault();
+
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+    const displayName = isRegisterMode ? document.getElementById('authName').value.trim() : "";
+
+    try {
+        const data = isRegisterMode
+            ? await submitAuth('/api/auth/register', { displayName, email, password })
+            : await submitAuth('/api/auth/login', { email, password });
+
+        launchMainApp(data.id, data.displayName);
+    } catch (err) {
+        console.error(err);
+        alert(err.message || 'Sunucuya ulasilamadi');
+    }
+}
+
+let allUsers = [];
+let activeConversationId = null;
+let activePartner = null;
+let conversationSelectionVersion = 0;
+let typingTimeout = null;
+let chatConnection = null;
+
+// Giriş Başarılı Olduğunda Ekranları Değiştiren Motor Fonksiyon
+function launchMainApp(userId, name) {
+    // Giriş kutusunu pürüzsüzce kapat, mesajlaşmayı aç
+    document.getElementById('authContainer').style.display = 'none';
+    document.getElementById('appContainer').style.display = 'flex';
+
+    // Üst profil alanını giriş yapan kişiye göre güncelle
+    document.getElementById('currentUserName').innerText = name;
+    document.getElementById('currentUserAvatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=075E54&color=fff&bold=true`;
+
+    window.currentUserId = userId;
+    initializeRealtimeConnection(userId);
+    loadUsers();
+}
+
+async function initializeRealtimeConnection(userId) {
+    if (!window.signalR) {
+        return;
+    }
+
+    chatConnection = new signalR.HubConnectionBuilder()
+        .withUrl(`/hubs/chat?userId=${encodeURIComponent(userId)}`)
+        .withAutomaticReconnect()
+        .build();
+
+    chatConnection.on('UserTyping', (senderName) => {
+        if (activePartner?.displayName === senderName) {
+            document.getElementById('partnerStatus').textContent = 'Yazıyor...';
+        }
+    });
+
+    chatConnection.on('UserStoppedTyping', () => {
+        if (activePartner) {
+            document.getElementById('partnerStatus').textContent = activePartner.isOnline
+                ? 'Çevrimiçi'
+                : `Son görülme: ${formatLastSeen(activePartner.lastSeenAt) || 'bilinmiyor'}`;
+        }
+    });
+
+    try {
+        await chatConnection.start();
+        await chatConnection.invoke('JoinUser', userId);
+    } catch (error) {
+        console.error('Gerçek zamanlı bağlantı kurulamadı', error);
+    }
+}
+
+function notifyTyping() {
+    if (!chatConnection || chatConnection.state !== 'Connected' || !activePartner) {
+        return;
+    }
+
+    chatConnection.invoke('SendTypingToUser', activePartner.id, document.getElementById('currentUserName').textContent)
+        .catch((error) => console.error(error));
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(stopTyping, 1200);
+}
+
+function stopTyping() {
+    clearTimeout(typingTimeout);
+    if (chatConnection?.state === 'Connected' && activePartner) {
+        chatConnection.invoke('StopTypingToUser', activePartner.id)
+            .catch((error) => console.error(error));
+    }
+}
+
+async function loadUsers() {
+    const list = document.getElementById('userList');
+    list.innerHTML = '<div class="user-item-sub" style="padding:16px">Kisiler yukleniyor...</div>';
+
+    try {
+        const response = await fetch(`/api/users?userId=${encodeURIComponent(window.currentUserId)}`);
+        let data = [];
+        try {
+            data = await response.json();
+        } catch {
+            data = [];
+        }
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Kisiler alinamadi');
+        }
+
+        allUsers = Array.isArray(data) ? data : [];
+        renderUsers(allUsers);
+    } catch (err) {
+        console.error(err);
+        list.innerHTML = `<div class="user-item-sub" style="padding:16px">${err.message || 'Kisiler yuklenemedi'}</div>`;
+    }
+}
+
+function renderUsers(users) {
+    const list = document.getElementById('userList');
+    list.innerHTML = '';
+
+    if (!users.length) {
+        list.innerHTML = '<div class="user-item-sub" style="padding:16px">Kayitli baska kisi yok</div>';
+        return;
+    }
+
+    for (const user of users) {
+        const item = document.createElement('div');
+        item.className = `user-item${activePartner?.id === user.id ? ' active' : ''}`;
+        item.dataset.userId = user.id;
+        item.addEventListener('click', () => openConversation(user));
+
+        const avatar = document.createElement('img');
+        avatar.className = 'avatar';
+        avatar.alt = user.displayName || '';
+        avatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'Kullanici')}&background=075E54&color=fff&bold=true`;
+
+        const body = document.createElement('div');
+        body.className = 'user-item-body';
+
+        const top = document.createElement('div');
+        top.className = 'user-item-top';
+
+        const name = document.createElement('span');
+        name.className = 'user-item-name';
+        name.textContent = user.displayName || 'Isimsiz';
+
+        const time = document.createElement('span');
+        time.className = 'user-item-time';
+        time.textContent = formatLastSeen(user.lastSeenAt);
+
+        top.append(name, time);
+
+        const sub = document.createElement('div');
+        sub.className = 'user-item-sub';
+        sub.textContent = user.email || '';
+
+        body.append(top, sub);
+        item.append(avatar, body);
+        list.appendChild(item);
+    }
+}
+
+async function openConversation(user) {
+    if (!window.currentUserId || !user?.id) {
+        throw new Error('Kullanıcı kimliği bulunamadı');
+    }
+
+    const selectionVersion = ++conversationSelectionVersion;
+    activePartner = user;
+    activeConversationId = null;
+    const header = document.getElementById('chatHeader');
+    const inputContainer = document.getElementById('chatInputContainer');
+    const messages = document.getElementById('chatMessages');
+
+    header.style.display = 'flex';
+    inputContainer.style.display = 'flex';
+    const welcomePlaceholder = document.getElementById('welcomePlaceholder');
+    if (welcomePlaceholder) {
+        welcomePlaceholder.style.display = 'none';
+    }
+    document.getElementById('partnerName').textContent = user.displayName || 'Isimsiz';
+    document.getElementById('partnerStatus').textContent = user.isOnline
+        ? 'Çevrimiçi'
+        : `Son görülme: ${formatLastSeen(user.lastSeenAt) || 'bilinmiyor'}`;
+    document.getElementById('partnerAvatar').src =
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'Kullanici')}&background=075E54&color=fff&bold=true`;
+    messages.innerHTML = '<div class="user-item-sub" style="padding:16px">Mesajlar yükleniyor...</div>';
+
+    try {
+        const conversationResponse = await fetch(`/api/conversations?userId=${encodeURIComponent(window.currentUserId)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id })
+        });
+        const conversation = await readApiResponse(conversationResponse, 'Sohbet oluşturulamadı');
+        if (!conversation?.id) {
+            throw new Error('Sunucu geçerli bir sohbet kimliği döndürmedi');
+        }
+
+        if (selectionVersion !== conversationSelectionVersion) {
+            return;
+        }
+
+        activeConversationId = conversation.id;
+
+        const messagesResponse = await fetch(
+            `/api/conversations/${conversation.id}/messages?userId=${encodeURIComponent(window.currentUserId)}`);
+        const messageList = await readApiResponse(messagesResponse, 'Mesajlar alınamadı');
+
+        if (selectionVersion !== conversationSelectionVersion) {
+            return;
+        }
+
+        renderMessages(messageList);
+        await fetch(`/api/conversations/${conversation.id}/read?userId=${encodeURIComponent(window.currentUserId)}`, {
+            method: 'POST'
+        });
+    } catch (err) {
+        console.error(err);
+        if (selectionVersion === conversationSelectionVersion) {
+            messages.innerHTML = `<div class="user-item-sub" style="padding:16px">${err.message || 'Sohbet yüklenemedi'}</div>`;
+        }
+    }
+}
+
+async function readApiResponse(response, fallbackMessage = 'İşlem başarısız') {
+    let data = {};
+    try {
+        data = await response.json();
+    } catch {
+        data = {};
+    }
+
+    if (!response.ok) {
+        throw new Error(data.error || `${fallbackMessage} (HTTP ${response.status})`);
+    }
+
+    return data;
+}
+
+function renderMessages(messages) {
+    const container = document.getElementById('chatMessages');
+    container.innerHTML = '';
+
+    if (!messages.length) {
+        container.innerHTML = '<div class="user-item-sub" style="padding:16px">Henüz mesaj yok. İlk mesajı siz gönderin.</div>';
+        return;
+    }
+
+    for (const message of messages) {
+        const row = document.createElement('div');
+        const isOutgoing = message.senderId === window.currentUserId;
+        row.className = `message-row ${isOutgoing ? 'justify-out' : 'justify-in'}`;
+
+        const bubble = document.createElement('div');
+        bubble.className = `msg-bubble ${isOutgoing ? 'bubble-out' : 'bubble-in'}`;
+
+        const content = document.createElement('div');
+        content.className = 'message-content';
+        content.textContent = message.content;
+
+        const time = document.createElement('span');
+        time.className = 'message-time';
+        time.textContent = formatLastSeen(message.sentAt);
+
+        const meta = document.createElement('span');
+        meta.className = 'message-meta';
+        meta.appendChild(time);
+
+        if (isOutgoing) {
+            const status = document.createElement('i');
+            const isRead = message.readByCount > 1;
+            const isDelivered = message.deliveredToCount > 1;
+            status.className = `bi ${isRead || isDelivered ? 'bi-check2-all' : 'bi-check2'} message-status${isRead ? ' read' : ''}`;
+            status.title = isRead ? 'Okundu' : isDelivered ? 'Teslim edildi' : 'Gönderildi';
+            meta.appendChild(status);
+        }
+
+        bubble.append(content, meta);
+
+        if (isOutgoing && !message.isDeleted) {
+            const actions = document.createElement('div');
+            actions.className = 'message-actions';
+
+            const editButton = document.createElement('button');
+            editButton.className = 'message-action';
+            editButton.innerHTML = '<i class="bi bi-pencil"></i>';
+            editButton.title = 'Düzenle';
+            editButton.addEventListener('click', () => editMessage(message));
+
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'message-action delete-action';
+            deleteButton.innerHTML = '<i class="bi bi-trash3"></i>';
+            deleteButton.title = 'Sil';
+            deleteButton.addEventListener('click', () => deleteMessage(message));
+
+            actions.append(editButton, deleteButton);
+            bubble.appendChild(actions);
+        }
+        container.appendChild(bubble);
+    }
+
+async function refreshActiveMessages() {
+    if (!activeConversationId) return;
+    const response = await fetch(`/api/conversations/${activeConversationId}/messages?userId=${encodeURIComponent(window.currentUserId)}`);
+    if (response.ok) renderMessages(await response.json());
+}
+
+async function editMessage(message) {
+    const content = prompt('Mesajı düzenle:', message.content);
+    if (content === null || !content.trim() || content.trim() === message.content) return;
+    const response = await fetch(`/api/messages/${message.id}?userId=${encodeURIComponent(window.currentUserId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: content.trim() })
+    });
+    if (!response.ok) alert('Mesaj düzenlenemedi.');
+    await refreshActiveMessages();
+}
+
+async function deleteMessage(message) {
+    const forEveryone = confirm('Bu mesajı herkesten silmek ister misiniz?');
+    if (!forEveryone && !confirm('Mesaj sadece sizden silinsin mi?')) {
+        return;
+    }
+    const response = await fetch(`/api/messages/${message.id}?userId=${encodeURIComponent(window.currentUserId)}&forEveryone=${forEveryone}`, {
+        method: 'DELETE'
+    });
+    if (!response.ok) alert('Mesaj silinemedi.');
+    await refreshActiveMessages();
+}
+
+    container.scrollTop = container.scrollHeight;
+}
+
+async function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const content = input.value.trim();
+    const conversationId = activeConversationId;
+    const selectionVersion = conversationSelectionVersion;
+    if (!conversationId || !content) {
+        return;
+    }
+
+    input.disabled = true;
+    try {
+        const response = await fetch(
+            `/api/conversations/${conversationId}/messages?userId=${encodeURIComponent(window.currentUserId)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+        await readApiResponse(response);
+        input.value = '';
+
+        const messagesResponse = await fetch(
+            `/api/conversations/${conversationId}/messages?userId=${encodeURIComponent(window.currentUserId)}`);
+        const messageList = await readApiResponse(messagesResponse);
+        if (selectionVersion === conversationSelectionVersion) {
+            renderMessages(messageList);
+        }
+    } catch (err) {
+        console.error(err);
+        alert(err.message || 'Mesaj gönderilemedi');
+    } finally {
+        input.disabled = false;
+        input.focus();
+    }
+}
+
+function formatLastSeen(value) {
+    if (!value) {
+        return '';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+
+    const oneDayInMilliseconds = 24 * 60 * 60 * 1000;
+    if (Date.now() - date.getTime() > oneDayInMilliseconds) {
+        return date.toLocaleDateString('tr-TR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    }
+
+    return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+}
+
+document.getElementById('userSearchInput').addEventListener('input', (event) => {
+    const query = event.target.value.trim().toLowerCase();
+    if (!query) {
+        renderUsers(allUsers);
+        return;
+    }
+
+    renderUsers(allUsers.filter((user) => {
+        const name = (user.displayName || '').toLowerCase();
+        const email = (user.email || '').toLowerCase();
+        return name.includes(query) || email.includes(query);
+    }));
+});
+
+document.getElementById('sendButton').addEventListener('click', sendMessage);
+document.getElementById('chatSearchButton').addEventListener('click', searchActiveMessages);
+document.getElementById('messageInput').addEventListener('input', notifyTyping);
+document.getElementById('messageInput').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        stopTyping();
+        sendMessage();
+    }
+});

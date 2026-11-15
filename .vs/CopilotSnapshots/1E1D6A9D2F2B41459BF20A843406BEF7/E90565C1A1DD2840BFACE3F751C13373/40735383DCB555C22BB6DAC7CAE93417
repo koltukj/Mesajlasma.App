@@ -1,0 +1,579 @@
+﻿using MesajlasmaApp.Models;
+using Microsoft.AspNetCore.Identity;
+using System.Text.Json;
+using static MesajlasmaApp.Models.ApiModels;
+namespace MesajlasmaApp.Services
+{
+    //bu dosya kullanicilari kaydeder  gris yapacak kullaniciyi bulur parolalari guvenli sekilde saklar konusmalari ve mesahjalri yonetir  Verileri appdata/.data jason dosyasiona kaydeder ilk acilista demo kullanicilari olsuturuur
+
+    public sealed class JsonDataStore
+    {
+        private readonly string _dataFilePath;
+        private readonly PasswordHasher<AppUser> _passwordHasher;
+        private readonly SemaphoreSlim _gate = new(1, 1);
+        private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web)
+        {
+            WriteIndented = true
+        };
+        private AppData _data = new();
+        public JsonDataStore(
+            IWebHostEnvironment enviroment,
+            PasswordHasher<AppUser> passwordHasher)
+        {
+            _passwordHasher = passwordHasher;
+            var datadirectory = Path.Combine(enviroment.ContentRootPath, "AppData");
+            Directory.CreateDirectory(datadirectory);
+            _dataFilePath = Path.Combine(datadirectory, "data.json");
+        }
+
+        public async Task<UserDto?> UpdateProfileImageAsync(Guid userId, string imageUrl)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var user = _data.Users.FirstOrDefault(item => item.Id == userId);
+                if (user is null) return null;
+                user.ProfileImageUrl = imageUrl;
+                await SaveInternalAsync();
+                return ToUserDto(user);
+            }
+            finally { _gate.Release(); }
+        }
+
+        public async Task<UserDto?> UpdateProfileAsync(Guid userId, string displayName, string statusMessage, bool isInvisible, string? profileImageUrl = null)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var user = _data.Users.FirstOrDefault(item => item.Id == userId);
+                if (user is null || string.IsNullOrWhiteSpace(displayName)) return null;
+                user.DisplayName = displayName.Trim();
+                user.StatusMessage = statusMessage?.Trim() ?? string.Empty;
+                user.IsInvisible = isInvisible;
+                if (profileImageUrl is not null) user.ProfileImageUrl = profileImageUrl;
+                await SaveInternalAsync();
+                return ToUserDto(user);
+            }
+            finally { _gate.Release(); }
+        }
+
+        public async Task<MessageDto?> AddAttachmentMessageAsync(Guid conversationId, Guid senderId, string name, string url)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var conversation = _data.Conversations.FirstOrDefault(item => item.Id == conversationId && item.ParticipantIds.Contains(senderId));
+                if (conversation is null) return null;
+                var message = new ChatMessage
+                {
+                    ConversationId = conversationId,
+                    SenderId = senderId,
+                    Content = name,
+                    AttachmentName = name,
+                    AttachmentUrl = url,
+                    SentAt = DateTime.UtcNow,
+                    DeliveredToUserIds = conversation.ParticipantIds.ToList(),
+                    ReadByUserIds = [senderId]
+                };
+                _data.Messages.Add(message);
+                await SaveInternalAsync();
+                return ToMessageDto(message);
+            }
+            finally { _gate.Release(); }
+        }
+
+        public async Task<IReadOnlyList<MessageDto>?> SearchMessagesAsync(Guid currentUserId, Guid conversationId, string query)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var conversation = _data.Conversations.FirstOrDefault(item =>
+                    item.Id == conversationId && item.ParticipantIds.Contains(currentUserId));
+                if (conversation is null) return null;
+
+                return _data.Messages
+                    .Where(message => message.ConversationId == conversationId &&
+                                      !message.DeletedForUserIds.Contains(currentUserId) &&
+                                      message.Content.Contains(query, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(message => message.SentAt)
+                    .Select(ToMessageDto)
+                    .ToList();
+            }
+            finally { _gate.Release(); }
+        }
+        public async Task InitializeAsync()
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                if(File.Exists(_dataFilePath))
+                {
+                    try
+                    {
+                        await using var stream = File.OpenRead(_dataFilePath);
+                        _data = await JsonSerializer.DeserializeAsync<AppData>(stream, _jsonOptions) ?? new AppData();
+                    }
+                    catch (Exception)
+                    {
+                        var backupPath = _dataFilePath + ".bozuk-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+                        File.Copy(_dataFilePath, backupPath, overwrite: true);
+                        _data = new AppData();
+                    }
+                }
+                NormalizeData();
+                if (_data.Users.Count == 0)
+                {
+                    SeedDemoData();
+                    await SaveInternalAsync();
+                }
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        public async Task<(AppUser? User, string? Error)> CreateUserAsync(string displayName, string email, string password)
+        {
+            displayName = displayName.Trim();
+            email = NormalizeEmail(email);
+            await _gate.WaitAsync();
+            try
+            {
+                if (_data.Users.Any(user => string.Equals(user.Email, email, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return (null, "Bu e-posta adresi zaten kayitli");
+                }
+                var user = new AppUser
+                {
+                    DisplayName = displayName,
+                    Email = email,
+                    CreateAt = DateTime.UtcNow,
+                    LastSeenAt = DateTime.UtcNow,
+                };
+                user.PasswordHash = _passwordHasher.HashPassword(user, password);
+                _data.Users.Add(user);
+                await SaveInternalAsync();
+                return (user, null);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+
+        }
+
+        public async Task<AppUser?> FindUserByEmailAsync(string email)
+        {
+            email = NormalizeEmail(email);
+            await _gate.WaitAsync();
+            try
+            {
+                return _data.Users.FirstOrDefault(user => string.Equals(user.Email, email, StringComparison.OrdinalIgnoreCase));
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+        public async Task<AppUser?> GetUserAsync(Guid userId)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                return _data.Users.FirstOrDefault(user => user.Id == userId);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        public async Task<IReadOnlyList<UserDto>> GetUsersAsync(Guid curentUserId)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                return _data.Users
+                    .Where(user => user.Id != curentUserId)
+                    .OrderBy(user => user.DisplayName)
+                    .Select(user => ToUserDto(user))
+                    .ToList();
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+        public async Task<IReadOnlyList<ConversationSummaryDto>> GetConversationSummaryAsync(Guid curentUserId)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                return _data.Conversations
+                    .Where(conversation => conversation.ParticipantIds.Contains(curentUserId))
+                    .Select(conversation => BuildConversationSummary(conversation, curentUserId))
+                    .Where(summary => summary is not null)
+                    .Select(summary => summary!)
+                    .OrderByDescending(summary => summary.UpdateAt)
+                    .ToList();
+            }
+            finally { _gate.Release(); }
+        }
+        public async Task<(ConversationCreatedDto? Conversation, string? Error)>
+            GetOrCreatePrivateConversationAsync(
+            Guid currentUserId,
+            Guid otherUserId)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                if (currentUserId == otherUserId)
+                {
+                    return (null, "Bu kadar mi yanlizsin gercekten");
+                }
+                var otherUser = _data.Users.FirstOrDefault(user => user.Id == otherUserId);
+                if (otherUser is null)
+                {
+                    return (null, "O kim ya Oyle biri yok");
+                }
+                var conversation = _data.Conversations.FirstOrDefault(item =>
+                    item.ParticipantIds.Count == 2 &&
+                    item.ParticipantIds.Contains(currentUserId) &&
+                    item.ParticipantIds.Contains(otherUserId));
+                if (conversation is null)
+                {
+                    conversation = new Conversation
+                    {
+                        ParticipantIds = [currentUserId, otherUserId],
+                        CreateAt = DateTime.UtcNow,
+                    };
+                    _data.Conversations.Add(conversation);
+                    await SaveInternalAsync();
+                }
+                return (
+                    new ConversationCreatedDto(
+                        conversation.Id,
+                        ToUserDto(otherUser)),
+                     null);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        public async Task<IReadOnlyList<MessageDto>?> GetMessagesAsync(Guid curentUserId, Guid conversatinId, int take)
+        {
+            take = Math.Clamp(take, 1, 200);
+            await _gate.WaitAsync();
+            try
+            {
+                var conversation = _data.Conversations.FirstOrDefault(item => item.Id == conversatinId && item.ParticipantIds.Contains(curentUserId));
+                if (conversation == null)
+                {
+                    return null;
+                }
+                return _data.Messages
+                    .Where(message => message.ConversationId == conversatinId)
+                    .Where(message => !message.DeletedForUserIds.Contains(curentUserId))
+                    .OrderByDescending(message => message.SentAt)
+                    .Take(take)
+                    .OrderBy(message => message.SentAt)
+                    .Select(ToMessageDto)
+                    .ToList();
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        public async Task<MessageDto?> EditMessageAsync(Guid messageId, Guid userId, string content)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var message = _data.Messages.FirstOrDefault(item => item.Id == messageId && item.SenderId == userId && !item.IsDeleted);
+                if (message is null || string.IsNullOrWhiteSpace(content)) return null;
+                message.Content = content.Trim();
+                message.EditedAt = DateTime.UtcNow;
+                await SaveInternalAsync();
+                return ToMessageDto(message);
+            }
+            finally { _gate.Release(); }
+        }
+
+        public async Task<MessageDto?> DeleteMessageAsync(Guid messageId, Guid userId, bool forEveryone)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var message = _data.Messages.FirstOrDefault(item => item.Id == messageId && item.SenderId == userId);
+                if (message is null) return null;
+                if (forEveryone)
+                {
+                    message.Content = "Bu mesaj silindi";
+                    message.IsDeleted = true;
+                }
+                else if (!message.DeletedForUserIds.Contains(userId))
+                {
+                    message.DeletedForUserIds.Add(userId);
+                }
+                await SaveInternalAsync();
+                return ToMessageDto(message);
+            }
+            finally { _gate.Release(); }
+        }
+        public async Task<MessageDto?> AddMessageAsync(
+            Guid conversationId,
+            Guid senderId,
+            string content)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var conversation = _data.Conversations.FirstOrDefault(item =>
+                    item.Id == conversationId &&
+                    item.ParticipantIds.Contains(senderId));
+                if (conversation == null)
+                {
+                    return null;
+                }
+                var message = new ChatMessage
+                {
+                    ConversationId = conversationId,
+                    SenderId = senderId,
+                    Content = content.Trim(),
+                    SentAt = DateTime.UtcNow,
+                    DeliveredToUserIds = conversation.ParticipantIds.ToList(),
+                    ReadByUserIds = [senderId]
+                };
+
+                _data.Messages.Add(message);
+                await SaveInternalAsync();
+                return ToMessageDto(message);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+
+        }
+        public async Task<bool?> MarkConversationReadAsync(
+            Guid conversationId,
+            Guid currentUserId)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var conversation = _data.Conversations.FirstOrDefault(item =>
+                    item.Id == conversationId &&
+                    item.ParticipantIds.Contains(currentUserId));
+                if (conversation == null)
+                {
+                    return null;
+                }
+                var changed = false;
+                foreach (var message in _data.Messages.Where(message =>
+                message.ConversationId == conversationId &&
+                message.SenderId != currentUserId))
+                {
+                    if (!message.ReadByUserIds.Contains(currentUserId))
+                    {
+                        message.ReadByUserIds.Add(currentUserId);
+                        changed = true;
+                    }
+                }
+                if (changed)
+                {
+                    await SaveInternalAsync();
+                }
+                return changed;
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        public async Task<IReadOnlyList<Guid>?> GetParticipantIdsAsync(
+            Guid conversationId,
+            Guid requestingUserId)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var conversation = _data.Conversations.FirstOrDefault(item =>
+                    item.Id == conversationId &&
+                    item.ParticipantIds.Contains(requestingUserId));
+                
+                return conversation?.ParticipantIds.ToList();
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+        public async Task UpdateLastSeenAsync(Guid userId)
+        {
+            await _gate.WaitAsync();
+            try
+            {
+                var user = _data.Users.FirstOrDefault(item => item.Id == userId);
+                if (user == null)
+                {
+                    return;
+                }
+
+                user.LastSeenAt = DateTime.UtcNow;
+                await SaveInternalAsync();
+               
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        private ConversationSummaryDto? BuildConversationSummary(
+            Conversation conversation,
+            Guid currentUserId)
+        {
+            var otherUserId = conversation.ParticipantIds.FirstOrDefault(id =>
+            id != currentUserId);
+            var otherUser = _data.Users.FirstOrDefault(user => user.Id == otherUserId);
+            if (otherUser == null)
+            {
+                return null;
+            }
+            var conversationMessages = _data.Messages
+                .Where(message => message.ConversationId == conversation.Id)
+                .ToList();
+
+            var lastMessage = conversationMessages
+                .OrderByDescending(message => message.SentAt)
+                .FirstOrDefault();
+
+            var unreadCount = conversationMessages.Count(message =>
+            message.SenderId != currentUserId &&
+            !message.ReadByUserIds.Contains(currentUserId));
+
+            return new ConversationSummaryDto(
+                conversation.Id,
+                ToUserDto(otherUser),
+                lastMessage is null ? null : ToMessageDto(lastMessage),
+                unreadCount,
+                lastMessage?.SentAt ?? conversation.CreateAt);
+        }
+
+        private MessageDto ToMessageDto(ChatMessage message)
+        {
+            var sender = _data.Users.FirstOrDefault(user => user.Id == message.SenderId);
+            return new MessageDto(
+                message.Id,
+                message.ConversationId,
+                message.SenderId,
+                sender?.DisplayName ?? "Bilinmeyen kullanici",
+                message.Content,
+                message.AttachmentName,
+                message.AttachmentUrl,
+                message.SentAt,
+                message.ReadByUserIds.Distinct().Count(),
+                message.DeliveredToUserIds.Distinct().Count(),
+                message.EditedAt is not null,
+                message.IsDeleted);
+        }
+
+        private static UserDto ToUserDto(AppUser user)
+        {
+            return new UserDto(
+                user.Id,
+                user.DisplayName,
+                user.Email,
+                !user.IsInvisible && DateTime.UtcNow - user.LastSeenAt < TimeSpan.FromMinutes(5),
+                user.LastSeenAt,
+                user.ProfileImageUrl,
+                user.StatusMessage);
+        }
+
+        private AppUser CreateDemoUser(string displayName,string email)
+        {
+            var user = new AppUser
+            {
+                DisplayName = displayName,
+                Email = email,
+                CreateAt = DateTime.UtcNow.AddDays(-1),
+                LastSeenAt = DateTime.UtcNow.AddMinutes(-10)
+            };
+            user.PasswordHash = _passwordHasher.HashPassword(user, "Demo123!");
+            return user;
+        }
+
+        private void SeedDemoData()
+        {
+            var ayse = CreateDemoUser("Ayse Yilmaz", "ayse@example.com");
+            var mehmet = CreateDemoUser("Mehmet Demir", "mehmet@example.com");
+            var zeynep = CreateDemoUser("Zeynep Kaya", "zeynep@example.com");
+            _data.Users.AddRange([ayse, mehmet, zeynep]);
+            var firstConversation = new Conversation
+            {
+                ParticipantIds = [ayse.Id, mehmet.Id],
+                CreateAt = DateTime.UtcNow.AddMinutes(-30)
+            };
+            _data.Conversations.Add(firstConversation);
+            _data.Messages.AddRange([
+                new ChatMessage
+                {
+                    ConversationId = firstConversation.Id,
+                    SenderId = ayse.Id,
+                    Content = "CALISIYO",
+                    SentAt = DateTime.UtcNow.AddMinutes(-25),
+                    ReadByUserIds = [ayse.Id, mehmet.Id]
+                },
+                new ChatMessage
+                {
+                    ConversationId = firstConversation.Id,
+                    SenderId = mehmet.Id,
+                    Content = "CALISIYO",
+                    SentAt = DateTime.UtcNow.AddMinutes(-24),
+                    ReadByUserIds = [ayse.Id, mehmet.Id]
+                }
+            ]);
+        }
+
+        private void NormalizeData()
+        {
+            _data.Users ??= [];
+            _data.Conversations ??= [];
+            _data.Messages ??= [];
+
+            foreach (var conversation in _data.Conversations)
+            {
+                conversation.ParticipantIds ??= [];
+            }
+            foreach (var message in _data.Messages)
+            {
+                message.ReadByUserIds ??= [];
+                message.DeliveredToUserIds ??= message.ReadByUserIds.ToList();
+                message.DeletedForUserIds ??= [];
+            }
+        }
+
+        private async Task SaveInternalAsync()
+        {
+            var temporaryPath = _dataFilePath + ".tmp";
+            await using (var stream = File.Create(temporaryPath))
+            {
+                await JsonSerializer.SerializeAsync(stream, _data, _jsonOptions);
+            }
+            File.Move(temporaryPath, _dataFilePath, overwrite: true);
+  
+        }
+
+        private static string NormalizeEmail(string email)
+        {
+            return email.Trim().ToLowerInvariant();
+        }
+    }
+}
