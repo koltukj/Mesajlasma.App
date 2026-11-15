@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MesajlasmaApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+83dbc04caebf05da85004ad25e547ce0100a0f0e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+279f0ff5b3485b0f4044b59bf8859c52ef3766ad")]
 [assembly: System.Reflection.AssemblyProductAttribute("MesajlasmaApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MesajlasmaApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

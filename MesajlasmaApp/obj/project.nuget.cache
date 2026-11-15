@@ -1,8 +1,21 @@
 {
   "version": 2,
-  "dgSpecHash": "9B1T0sKcNNA=",
+  "dgSpecHash": "dczfZ78UyfM=",
   "success": true,
-  "projectFilePath": "C:\\Users\\silai\\Mesajlasma.App\\MesajlasmaApp\\MesajlasmaApp.csproj",
-  "expectedPackageFiles": [],
+  "projectFilePath": "C:\\Users\\efeer\\Music\\Mesajlasma.App\\MesajlasmaApp\\MesajlasmaApp.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\efeer\\.nuget\\packages\\microsoft.data.sqlite.core\\10.0.14\\microsoft.data.sqlite.core.10.0.14.nupkg.sha512",
+    "C:\\Users\\efeer\\.nuget\\packages\\microsoft.entityframeworkcore\\10.0.14\\microsoft.entityframeworkcore.10.0.14.nupkg.sha512",
+    "C:\\Users\\efeer\\.nuget\\packages\\microsoft.entityframeworkcore.abstractions\\10.0.14\\microsoft.entityframeworkcore.abstractions.10.0.14.nupkg.sha512",
+    "C:\\Users\\efeer\\.nuget\\packages\\microsoft.entityframeworkcore.analyzers\\10.0.14\\microsoft.entityframeworkcore.analyzers.10.0.14.nupkg.sha512",
+    "C:\\Users\\efeer\\.nuget\\packages\\microsoft.entityframeworkcore.relational\\10.0.14\\microsoft.entityframeworkcore.relational.10.0.14.nupkg.sha512",
+    "C:\\Users\\efeer\\.nuget\\packages\\microsoft.entityframeworkcore.sqlite.core\\10.0.14\\microsoft.entityframeworkcore.sqlite.core.10.0.14.nupkg.sha512",
+    "C:\\Users\\efeer\\.nuget\\packages\\microsoft.extensions.dependencymodel\\10.0.14\\microsoft.extensions.dependencymodel.10.0.14.nupkg.sha512",
+    "C:\\Users\\efeer\\.nuget\\packages\\npgsql\\10.0.3\\npgsql.10.0.3.nupkg.sha512",
+    "C:\\Users\\efeer\\.nuget\\packages\\npgsql.entityframeworkcore.postgresql\\10.0.3\\npgsql.entityframeworkcore.postgresql.10.0.3.nupkg.sha512",
+    "C:\\Users\\efeer\\.nuget\\packages\\sqlitepclraw.core\\2.1.13\\sqlitepclraw.core.2.1.13.nupkg.sha512",
+    "C:\\Users\\efeer\\.nuget\\packages\\sqlitepclraw.lib.e_sqlite3\\2.1.13\\sqlitepclraw.lib.e_sqlite3.2.1.13.nupkg.sha512",
+    "C:\\Users\\efeer\\.nuget\\packages\\sqlitepclraw.provider.e_sqlite3\\2.1.13\\sqlitepclraw.provider.e_sqlite3.2.1.13.nupkg.sha512"
+  ],
   "logs": []
 }
